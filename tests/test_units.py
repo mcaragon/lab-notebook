@@ -161,3 +161,40 @@ def test_migration_from_v1(tmp_path):
     with sqlite3.connect(path) as c2:
         assert c2.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
     db.Store(path)  # opening again is a no-op
+
+
+def test_pair_procedure_log():
+    from labnotebook.report import pair_procedure_log
+    procedure = [{"id": 1, "n": 1}, {"id": 2, "n": 2}]
+    log = [{"id": 10, "procedure_id": None, "text": "weighed"},
+           {"id": 11, "procedure_id": 1, "text": "dissolved"},
+           {"id": 12, "procedure_id": None, "text": "timer done"},   # joins step 1 (the step in progress)
+           {"id": 13, "procedure_id": 2, "text": "added"}]
+    rows = pair_procedure_log(procedure, log)
+    assert [r["p"]["id"] if r["p"] else None for r in rows] == [None, 1, 2]
+    assert [[e["id"] for e in r["entries"]] for r in rows] == [[10], [11, 12], [13]]
+
+
+def test_ghs_statements_drop_not_classified_lines():
+    from labnotebook.report import ghs_statements, hazard_info
+    st = ["H225: Highly Flammable liquid and vapor [Danger Flammable liquids]", "Not Classified",
+          "Reported as not meeting GHS hazard criteria by 1866 of 1876 companies (only 0.5% companies provided GHS "
+          "information). For more detailed information, please visit ECHA C&L website."]
+    real, nc = ghs_statements(st)
+    assert real == ["H225: Highly Flammable liquid and vapor"] and nc
+    assert hazard_info({"hazard_statements": st})["codes"] == ["H225"]
+    assert not hazard_info({"hazard_statements": st})["not_classified"]  # has real H-statements
+    h = hazard_info({"hazard_statements": st[1:]})
+    assert h["codes"] == [] and h["not_classified"]
+
+
+def test_actual_from_log():
+    e = lambda action, rid, amount, unit, i: {"id": i, "action": action, "data": {"chem": {"reagent_id": rid}, "amount": amount, "unit": unit}}  # noqa: E731
+    entries = [e("add", 1, 0.10, "g", 1), e("add", 1, 95, "mg", 2), e("add", 2, 5, "mL", 3), e("add", 2, 1, "g", 4)]
+    assert actions.actual_from_log(entries, 1) == (pytest.approx(0.195), "g")
+    assert actions.actual_from_log(entries, 2) == (5.0, "mL")     # mixed units: the first unit counts
+    entries.append(e("weigh", 1, 0.2, "g", 5))
+    assert actions.actual_from_log(entries, 1) == (0.2, "g")       # an "Amount used" entry wins
+    entries.append({"id": 6, "action": "weigh", "data": {"reagent_id": 3, "value": 2.5, "unit": "mL"}})  # old format
+    assert actions.actual_from_log(entries, 3) == (2.5, "mL")
+    assert actions.actual_from_log(entries, 9) is None

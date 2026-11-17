@@ -41,7 +41,7 @@ def test_markdown_report(client):
     assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
     md = r.text
     for heading in ["# Reduction of benzaldehyde", "## Objective", "## Reaction", "## Reagents",
-                    "## Procedure", "## Log", "## Yield", "## Discussion", "## References"]:
+                    "## Procedure and log", "## Yield", "## Discussion", "## References"]:
         assert heading in md, heading
     assert "## Safety" not in md  # hazards are in the reagent table
     # only one amount per row: the measured one, else the planned one marked with *
@@ -59,7 +59,7 @@ def test_markdown_report(client):
     assert "1. Smith, J.; Doe, A. A reduction. J. Org. Chem. 2020, 85, 1–10. DOI: 10.1000/xyz." in md
     assert "2. Lab manual, exp. 7" in md
     assert "3. Benzaldehyde: PubChem CID 240" in md
-    assert "| 0:00:0" in md  # T+ column
+    assert "*Before the procedure:*" in md and "T+0:00:00: Experiment started" in md
 
 
 def test_html_report_embeds_images_and_scheme(client):

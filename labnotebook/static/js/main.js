@@ -1,21 +1,22 @@
 /* Lab Notebook frontend: vanilla JS modules, no build step.
-   Routes: #/ (list), #/exp/<id>[/<section>], #/seq/<id>. */
-import { $, $$, api, debounce, esc, toast } from "./util.js";
-import { state, setData, expId } from "./state.js";
+   Routes: #/ (list), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/seq/<id>. */
+import { $, $$, api, esc, toast } from "./util.js";
+import { state, setData, expId, addRenderer, refresh, sigOf } from "./state.js";
 import { flushExp, saveExp, sectionField, bindSections, hasPendingExp } from "./expfields.js";
 import { renderReaction } from "./reaction.js";
 import { renderReagents } from "./reagents.js";
-import { renderProcedure } from "./procedure.js";
+import { renderProcedure, renderChecklist } from "./procedure.js";
 import { renderBench, startTicker } from "./bench.js";
 import { renderResults, renderRefs, renderReport } from "./results.js";
 import { renderSequence } from "./sequence.js";
 
 const app = $("#app");
-const SECTIONS = [
-  ["overview", "Overview"], ["reaction", "Reaction"], ["reagents", "Reagents"], ["procedure", "Procedure & log"],
-  ["results", "Results"], ["refs", "References"], ["report", "Report"],
-];
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
+const TABS = [["plan", "Plan"], ["bench", "Bench"], ["results", "Results"], ["report", "Report"]];
+const TAB_HINTS = {
+  plan: "Overview, reaction and reagents", bench: "Reagent checklist, procedure and log",
+  results: "Yields, write-up and references", report: "PDF, Markdown and print view",
+};
 
 // ------------------------------------------------------------------------------------------- PubChem status
 async function checkHealth() {
@@ -46,34 +47,36 @@ async function route() {
         app.innerHTML = `<div class="panel">Could not load the experiment: ${esc(e.message)} <a href="#/">Back</a></div>`;
         return;
       }
-      renderShell();
-      setData(state.data);
+      renderShell(parts[2]);
+    } else {
+      showTab(parts[2] || state.tab);
     }
-    if (parts[2]) document.getElementById(`sec-${parts[2]}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  } else if (parts[0] === "seq" && parts[1]) {
-    await flushExp.flush();
-    state.data = null;
-    state.renderers = [];
-    document.body.classList.remove("running");
-    renderSequence(app, Number(parts[1]));
   } else {
     await flushExp.flush();
     state.data = null;
     state.renderers = [];
-    renderList();
+    document.body.classList.remove("running");
+    if (parts[0] === "seq" && parts[1]) renderSequence(app, Number(parts[1]));
+    else renderList();
   }
 }
 
 // ------------------------------------------------------------------------------------------- experiment list
 async function renderList() {
   document.title = "Lab Notebook";
-  document.body.classList.remove("running");
   app.innerHTML = `<div class="panel list-panel"><div class="row"><h2 style="margin:0">Experiments</h2><span class="spacer"></span>
     <button class="btn primary" id="new-exp">+ New experiment</button></div><div id="list" class="empty">Loading…</div></div>
     <div class="panel list-panel"><div class="row"><h2 style="margin:0">Sequences</h2><span class="spacer"></span>
     <button class="btn" id="new-seq">+ New sequence</button></div>
     <p class="hint">A sequence links separate experiments (e.g. one per step, on different days) into one route with an overall
       scheme, yield and combined report.</p><div id="seqs" class="empty">Loading…</div></div>`;
+  $("#new-exp").onclick = async () => {
+    try {
+      const d = await api("POST", "/api/experiments", { title: "New experiment" });
+      state.data = null;
+      location.hash = `#/exp/${d.experiment.id}/plan`;
+    } catch (e) { toast(e.message, true); }
+  };
   $("#new-seq").onclick = async () => {
     try {
       const d = await api("POST", "/api/sequences", { title: "New sequence" });
@@ -90,19 +93,12 @@ async function renderList() {
       <span class="muted small">${q.experiments.map((e) => esc(e.title)).join(" → ")}</span>
       <span class="muted small">${q.experiments.length} experiment${q.experiments.length === 1 ? "" : "s"}</span></a></li>`).join("")}</ul>`;
   }).catch(() => { const box = $("#seqs"); if (box) box.textContent = "Could not load sequences."; });
-  $("#new-exp").onclick = async () => {
-    try {
-      const d = await api("POST", "/api/experiments", { title: "New experiment" });
-      state.data = null;
-      location.hash = `#/exp/${d.experiment.id}`;
-    } catch (e) { toast(e.message, true); }
-  };
   try {
     const { experiments } = await api("GET", "/api/experiments");
     const list = $("#list");
     if (!experiments.length) { list.innerHTML = "No experiments yet. Create one to start planning."; return; }
     list.className = "";
-    list.innerHTML = `<ul class="exp-list">${experiments.map((e) => `<li><a href="#/exp/${e.id}">
+    list.innerHTML = `<ul class="exp-list">${experiments.map((e) => `<li><a href="#/exp/${e.id}/${e.status === "in_progress" ? "bench" : "plan"}">
       <span class="title">${esc(e.title)}</span>
       <span class="muted small">${esc(e.course || "")}</span>
       <span class="muted small">${esc(e.date || "")}</span>
@@ -114,7 +110,7 @@ async function renderList() {
 }
 
 // ------------------------------------------------------------------------------------------- shell
-function renderShell() {
+function renderShell(tab) {
   const exp = state.data.experiment;
   document.title = `${exp.title} · Lab Notebook`;
   app.innerHTML = `
@@ -124,44 +120,47 @@ function renderShell() {
       <span class="saved" id="saved"></span>
     </div>
     <div id="bench" class="bench"></div>
-    <div class="exp-layout">
-      <nav class="toc" aria-label="Sections">${SECTIONS.map(([k, v]) => `<a href="#/exp/${exp.id}/${k}" data-sec="${k}">${v}</a>`).join("")}</nav>
-      <div class="exp-body">
-        ${SECTIONS.map(([k, v]) => `<section id="sec-${k}" class="sec" aria-label="${v}"></section>`).join("")}
-      </div>
-    </div>`;
+    <nav class="tabs" role="tablist">${TABS.map(([k, v]) =>
+      `<a role="tab" href="#/exp/${exp.id}/${k}" data-tab="${k}" title="${TAB_HINTS[k]}">${v}</a>`).join("")}</nav>
+    <div class="tab-body" data-tab="plan"><section id="sec-overview"></section><section id="sec-reaction"></section><section id="sec-reagents"></section></div>
+    <div class="tab-body" data-tab="bench"><section id="sec-checklist"></section><section id="sec-procedure"></section></div>
+    <div class="tab-body" data-tab="results"><section id="sec-results"></section><section id="sec-refs"></section></div>
+    <div class="tab-body" data-tab="report"><section id="sec-report"></section></div>`;
   $("#exp-title").addEventListener("input", (e) => {
     saveExp({ title: e.target.value || "Untitled experiment" });
     document.title = `${e.target.value} · Lab Notebook`;
   });
-  // highlight the section in view
-  const links = $$(".toc a");
-  const io = new IntersectionObserver((entries) => {
-    for (const en of entries) {
-      if (en.isIntersecting) links.forEach((a) => a.classList.toggle("active", `sec-${a.dataset.sec}` === en.target.id));
-    }
-  }, { rootMargin: "-20% 0px -70% 0px" });
-  $$(".sec").forEach((s) => io.observe(s));
-  $$(".toc a").forEach((a) => a.addEventListener("click", (e) => {
-    e.preventDefault();
-    $(`#sec-${a.dataset.sec}`).scrollIntoView({ behavior: "smooth", block: "start" });
-    history.replaceState(null, "", a.getAttribute("href"));
-  }));
+  const d = () => state.data;
+  state.renderers = [];
+  addRenderer("*", () => sigOf(d().experiment.status), () => {
+    const st = $("#f-status");
+    if (st && st !== document.activeElement) st.value = d().experiment.status;
+  });
+  addRenderer("*", () => sigOf(d().experiment.started_at, d().experiment.ended_at, d().timers), () => renderBench($("#bench")));
+  addRenderer("plan", () => sigOf(d().sequences), () => renderOverview($("#sec-overview")));
+  addRenderer("plan", () => sigOf(d().steps, d().scheme_html, d().experiment.scheme_style), () => renderReaction($("#sec-reaction")));
+  addRenderer("plan", () => sigOf(d().reagents, d().steps.map((x) => [x.id, x.title]), d().stoich, d().refs.map((x) => x.id)),
+    () => renderReagents($("#sec-reagents")));
+  addRenderer("bench", () => sigOf(d().reagents.map((r) => [r.id, r.name, r.label, r.role, r.step_id, r.calc, r.actual_value,
+    r.actual_basis, r.basis, r.actual_mass_g, r.crude_mass_g, r.form]), d().steps.map((x) => [x.id, x.title])),
+    () => renderChecklist($("#sec-checklist")));
+  addRenderer("bench", () => sigOf(d().procedure, d().entries, d().steps.map((x) => x.id),
+    d().reagents.map((r) => [r.id, r.name, r.label, r.role, r.form, r.mp])), () => renderProcedure($("#sec-procedure")));
+  addRenderer("results", () => sigOf(d().reagents.filter((r) => r.role === "product").map((r) => [r.id, r.name, r.calc, r.expected_ref_id]),
+    d().stoich.overall_yield, d().refs.map((x) => x.id), d().steps.length), () => renderResults($("#sec-results")));
+  addRenderer("results", () => sigOf(d().refs), () => renderRefs($("#sec-refs")));
+  addRenderer("report", () => sigOf(expId()), () => renderReport($("#sec-report")));
+  showTab(tab || (exp.started_at && !exp.ended_at ? "bench" : "plan"));
+}
 
-  // keep the section nav below the (variable-height) bench bar
-  new ResizeObserver(([en]) => document.documentElement.style.setProperty("--bench", `${Math.ceil(en.contentRect.height) + 8}px`))
-    .observe($("#bench"));
-  renderOverview($("#sec-overview"));
-  state.renderers = [
-    () => { const st = $("#f-status"); if (st && st !== document.activeElement) st.value = state.data.experiment.status; },
-    () => renderBench($("#bench")),
-    () => renderReaction($("#sec-reaction")),
-    () => renderReagents($("#sec-reagents")),
-    () => renderProcedure($("#sec-procedure")),
-    () => renderResults($("#sec-results")),
-    () => renderRefs($("#sec-refs")),
-  ];
-  renderReport($("#sec-report"));
+export function showTab(tab) {
+  if (!TABS.some(([k]) => k === tab)) tab = "plan";
+  state.tab = tab;
+  $$(".tabs a").forEach((a) => a.classList.toggle("active", a.dataset.tab === tab));
+  $$(".tab-body").forEach((b) => b.classList.toggle("hidden", b.dataset.tab !== tab));
+  refresh();
+  const want = `#/exp/${expId()}/${tab}`;
+  if (location.hash !== want) history.replaceState(null, "", want);
 }
 
 function renderOverview(root) {
@@ -175,15 +174,14 @@ function renderOverview(root) {
       <label class="field">Course / lab<input id="f-course" value="${esc(exp.course || "")}"></label>
     </div>
     <div style="height:12px"></div>
-    ${sectionField("objective", "Objective", "", 3)}
-    <div class="row seq-row" style="margin-top:12px">
+    ${sectionField("objective", "Objective", "", 2)}
+    <div class="row seq-row" style="margin-top:10px">
       <span class="small muted">Sequence:</span>
       ${(state.data.sequences || []).map((q) => `<a class="chip" href="#/seq/${q.id}">${esc(q.title)}</a>`).join("") || '<span class="small muted">none</span>'}
       <select id="seq-pick" aria-label="Add to a sequence"><option value="">Add to sequence…</option><option value="new">New sequence…</option></select>
-    </div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn" id="dup">Duplicate as new plan</button><span class="spacer"></span>
-      <button class="btn danger" id="del">Delete experiment</button>
+      <span class="spacer"></span>
+      <button class="btn small" id="dup">Duplicate as new plan</button>
+      <button class="btn small danger" id="del">Delete</button>
     </div></div>`;
   [["f-date", "date"], ["f-author", "author"], ["f-course", "course"]].forEach(([id, k]) =>
     $("#" + id, root).addEventListener("input", (e) => saveExp({ [k]: e.target.value })));
@@ -213,7 +211,7 @@ function renderOverview(root) {
     try {
       const d = await api("POST", `/api/experiments/${exp.id}/duplicate`);
       state.data = null;
-      location.hash = `#/exp/${d.experiment.id}`;
+      location.hash = `#/exp/${d.experiment.id}/plan`;
       toast("Copied the plan: steps, reagents with planned amounts, procedure and references.");
     } catch (e) { toast(e.message, true); }
   };
@@ -239,7 +237,7 @@ function renderOverview(root) {
   window.addEventListener("beforeunload", (e) => {
     if (hasPendingExp()) { e.preventDefault(); e.returnValue = ""; }
   });
-  // Refresh when coming back to the tab (another device may have logged something)
+  // Refresh when coming back to the app (another device may have logged something)
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState === "visible" && state.data) {
       try { setData(await api("GET", `/api/experiments/${expId()}`)); } catch { /* offline */ }
@@ -247,4 +245,3 @@ function renderOverview(root) {
   });
   route();
 })();
-

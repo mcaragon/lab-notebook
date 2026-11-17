@@ -146,22 +146,27 @@ CREATE TABLE refs (
     position INTEGER NOT NULL DEFAULT 0,
     authors TEXT, title TEXT, source TEXT, year TEXT, volume TEXT, pages TEXT, doi TEXT, url TEXT, text TEXT
 );
-CREATE TABLE sequences (
+CREATE INDEX IF NOT EXISTS reagents_exp_step ON reagents(experiment_id, step_id, position);
+CREATE INDEX IF NOT EXISTS entries_exp ON entries(experiment_id, ts);
+CREATE INDEX IF NOT EXISTS procedure_exp ON procedure(experiment_id, position);
+CREATE INDEX IF NOT EXISTS steps_exp ON steps(experiment_id, position);
+"""
+
+
+# Tables added after schema version 2 was first released; created on every start if missing
+_ALWAYS = """
+CREATE TABLE IF NOT EXISTS sequences (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '', notes TEXT, scheme_style TEXT NOT NULL DEFAULT 'auto',
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-CREATE TABLE sequence_items (
+CREATE TABLE IF NOT EXISTS sequence_items (
     id INTEGER PRIMARY KEY,
     sequence_id INTEGER NOT NULL REFERENCES sequences(id) ON DELETE CASCADE,
     experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
     position INTEGER NOT NULL DEFAULT 0,
     UNIQUE (sequence_id, experiment_id)
 );
-CREATE INDEX IF NOT EXISTS reagents_exp_step ON reagents(experiment_id, step_id, position);
-CREATE INDEX IF NOT EXISTS entries_exp ON entries(experiment_id, ts);
-CREATE INDEX IF NOT EXISTS procedure_exp ON procedure(experiment_id, position);
-CREATE INDEX IF NOT EXISTS steps_exp ON steps(experiment_id, position);
 """
 
 
@@ -223,6 +228,7 @@ class Store:
                 c.executescript(_V2)
                 if not fresh:
                     self._migrate_v1(c)
+            c.executescript(_ALWAYS)
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod

@@ -1,6 +1,7 @@
 /* Bench bar: experiment clock (T+), running timers and countdowns, alerts and screen wake lock. */
-import { $, $$, esc, fmtDur, parseDuration, toast } from "./util.js";
-import { state, mutate, expId, nowServer, labelOf } from "./state.js";
+import { $, $$, esc, fmtDur, toast } from "./util.js";
+import { state, mutate, expId, nowServer } from "./state.js";
+import { openComposer, focusQuickLog } from "./procedure.js";
 
 const alerted = new Set();
 let wakeLock = null;
@@ -16,7 +17,7 @@ export function renderBench(root) {
       <span class="hint">Starts the T+ clock. Every log entry records the time and T+.</span>
       <span class="spacer"></span>
       <button class="btn" id="b-timer">+ Timer</button>
-    </div>${timerForm()}`;
+    </div>`;
   } else {
     root.innerHTML = `<div class="bench-inner">
       <div class="clock" title="Started ${esc(new Date(exp.started_at).toLocaleString())}">
@@ -28,7 +29,7 @@ export function renderBench(root) {
       <button class="btn primary" id="b-log">✎ Log</button>
       ${running ? `<button class="btn" id="b-end" title="Stop the experiment clock">■ End</button>`
         : `<span class="small muted">Ended</span><button class="btn small" id="b-restart" title="Clear the clock to start again">Reset clock</button>`}
-    </div>${timerForm()}`;
+    </div>`;
   }
   bind(root);
   tick();
@@ -38,23 +39,17 @@ export function renderBench(root) {
 function timerChip(t) {
   const cd = t.kind === "countdown" && t.duration_s;
   return `<div class="timer ${cd ? "countdown" : ""}" data-timer="${t.id}">
-    <span class="t-label">${esc(t.label)}</span>
+    <span class="t-label" title="${esc(t.label)}">${cd ? "⏳ " : "⏱ "}${esc(t.label)}</span>
     <span class="t-val" data-since="${esc(t.started_at)}" ${cd ? `data-dur="${t.duration_s}" data-tid="${t.id}"` : ""}>0:00</span>
-    <button class="t-stop" data-stop="${t.id}" title="${cd ? "Done" : "Stop and log the duration"}" aria-label="Stop ${esc(t.label)}">■</button>
-    <button class="t-cancel" data-cancel="${t.id}" title="Discard this timer (nothing logged)" aria-label="Discard">✕</button>
+    <button class="t-stop" data-stop="${t.id}" title="${cd ? "Done (logs the time)" : "Stop and log the duration"}">${cd ? "Done" : "Stop"}</button>
+    <button class="t-cancel" data-cancel="${t.id}" title="Discard this timer (nothing logged)" aria-label="Discard ${esc(t.label)}">✕</button>
   </div>`;
 }
 
-function timerForm() {
-  const chems = state.data.reagents.filter((r) => r.role !== "product").map(labelOf);
-  return `<form class="timer-form hidden" id="timer-form" autocomplete="off">
-    <input id="tf-label" placeholder="What (e.g. Addition of NaBH4, Reflux)" list="tf-list" required aria-label="Timer label">
-    <datalist id="tf-list">${["Reflux", "Stirring", "Addition", "Drying", "Crystallization", ...chems.map((c) => "Addition of " + c)]
-      .map((x) => `<option value="${esc(x)}">`).join("")}</datalist>
-    <select id="tf-kind" aria-label="Timer type"><option value="stopwatch">Stopwatch</option><option value="countdown">Countdown</option></select>
-    <input id="tf-dur" class="w-sm hidden" placeholder="e.g. 30 min" aria-label="Countdown duration">
-    <button class="btn primary">Start</button><button type="button" class="btn" id="tf-close">Cancel</button>
-  </form>`;
+/** Switch to the Bench tab, then run fn once it is visible. */
+function onBench(fn) {
+  const want = `#/exp/${expId()}/bench`;
+  if (state.tab !== "bench") { location.hash = want; setTimeout(fn, 60); } else fn();
 }
 
 function bind(root) {
@@ -65,35 +60,12 @@ function bind(root) {
   $("#b-restart", root)?.addEventListener("click", () => {
     if (confirm("Reset the experiment clock? Existing log entries keep their T+ values.")) mutate("POST", `/api/experiments/${expId()}/restart`);
   });
-  $("#b-log", root)?.addEventListener("click", () => {
-    const composer = $("#composer");
-    composer?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => $("#composer .action-chips button")?.focus(), 300);
-  });
-  const form = $("#timer-form", root);
-  $("#b-timer", root)?.addEventListener("click", () => { form.classList.toggle("hidden"); $("#tf-label", root).focus(); });
-  $("#tf-close", root)?.addEventListener("click", () => form.classList.add("hidden"));
-  $("#tf-kind", root)?.addEventListener("change", (e) => $("#tf-dur", root).classList.toggle("hidden", e.target.value !== "countdown"));
-  form?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const kind = $("#tf-kind", root).value;
-    const body = { label: $("#tf-label", root).value.trim(), kind };
-    if (kind === "countdown") {
-      body.duration_s = parseDuration($("#tf-dur", root).value);
-      if (!body.duration_s) { toast("Enter a duration, e.g. 30 min.", true); return; }
-      askNotify();
-    }
-    startTimer(body);
-  });
-  $$("[data-stop]", root).forEach((b) => (b.onclick = () => mutate("POST", `/api/timers/${b.dataset.stop}/stop`)));
+  $("#b-log", root)?.addEventListener("click", () => onBench(focusQuickLog));
+  $("#b-timer", root)?.addEventListener("click", () => onBench(() => openComposer("timer")));
+  $$("[data-stop]", root).forEach((b) => (b.onclick = () => mutate("POST", `/api/timers/${b.dataset.stop}/stop`).catch(() => {})));
   $$("[data-cancel]", root).forEach((b) => (b.onclick = () => {
-    if (confirm("Discard this timer without logging it?")) mutate("DELETE", `/api/timers/${b.dataset.cancel}`);
+    if (confirm("Discard this timer without logging it?")) mutate("DELETE", `/api/timers/${b.dataset.cancel}`).catch(() => {});
   }));
-}
-
-export function startTimer(body) {
-  if (state.currentProc) body.procedure_id = state.currentProc;
-  return mutate("POST", `/api/experiments/${expId()}/timers`, body);
 }
 
 // ------------------------------------------------------------------------------------------- ticking and alerts
@@ -141,11 +113,6 @@ function alarm(label) {
   }
 }
 
-function askNotify() {
-  if ("Notification" in window && Notification.permission === "default" && window.isSecureContext) {
-    Notification.requestPermission().catch(() => {});
-  }
-}
 
 // Keep the phone screen on while an experiment runs (needs HTTPS or localhost)
 async function manageWakeLock() {

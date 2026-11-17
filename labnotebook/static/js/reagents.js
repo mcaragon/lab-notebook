@@ -133,13 +133,16 @@ function propsCell(r) {
 function hazardCell(r) {
   const x = r.extra_hazards || {};
   const dot = x.dot || {};
-  const hs = (r.hazard_statements || []).map(hText);
+  // PubChem's GHS list also has "Not Classified" / "Reported as not meeting GHS hazard criteria…" lines: not H-statements
+  const raw = r.hazard_statements || [];
+  const hs = raw.filter((h) => /^\s*(EU)?H\d{3}/.test(h)).map(hText);
+  const notClassified = !hs.length && raw.some((h) => /not classified|not meeting ghs/i.test(h));
   const uniq = [...new Map(hs.map((h) => [hCode(h), h])).values()];
   const open = expandedHaz.has(r.id);
   const shown = open ? uniq : uniq.slice(0, 3);
   const dotTxt = [...(dot.un || []), ...(dot.classes || []).filter((c) => !/forbidden/i.test(c)).map((c) => c.replace(/^(Class|Div)\s+([\d.]+).*/, "$1 $2")).slice(0, 2),
     (dot.packing_groups || []).length ? "PG " + dot.packing_groups.join("/") : ""].filter(Boolean);
-  const none = !uniq.length && !r.signal_word && !(r.pictograms || []).length && !dot.classes && !x.nfpa && !(x.alerts || []).length && !r.hazard_notes;
+  const none = !uniq.length && !notClassified && !r.signal_word && !(r.pictograms || []).length && !dot.classes && !x.nfpa && !(x.alerts || []).length && !r.hazard_notes;
   return `<div class="haz">
     <div class="haz-top">${(r.pictograms || []).map((p) => ghsImg(p)).join("")}
       ${x.nfpa ? nfpaDiamond(x.nfpa, 24) : ""}
@@ -150,6 +153,7 @@ function hazardCell(r) {
     ${(x.alerts || []).length ? `<div>${x.alerts.map((a) => `<span class="badge alert">${esc(a)}</span>`).join("")}</div>` : ""}
     ${shown.length ? `<ul class="hz">${shown.map((h) => `<li>${esc(h)}</li>`).join("")}</ul>` : ""}
     ${uniq.length > 3 ? `<button class="linklike small" data-haz-more="${r.id}">${open ? "show less" : `+${uniq.length - 3} more`}</button>` : ""}
+    ${notClassified ? '<div class="sub">Not classified (GHS)</div>' : ""}
     ${r.hazard_notes ? `<div class="sub note">${esc(r.hazard_notes)}</div>` : ""}
     ${none ? `<span class="sub">${r.cid ? "No hazard data in PubChem Local" : "—"}</span>` : ""}
   </div>`;

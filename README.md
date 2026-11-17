@@ -3,8 +3,9 @@
 Self-hosted lab notebook for organic chemistry experiments. It uses [PubChem Local](https://github.com/mcaragon/local_pubchem_db)
 as its chemical data source and runs as its own Docker container (built for Unraid).
 
-- **One page per experiment**: overview, reaction scheme, reagents, procedure & log, results, references and report,
-  with a section menu. A bench bar with the experiment clock stays at the top while you work.
+- **Four tabs per experiment:** **Plan** (overview, reaction scheme, reagents), **Bench** (reagent checklist,
+  procedure and log), **Results** (yields, write-up, references) and **Report**. A bench bar with the experiment
+  clock and running timers stays at the top of every tab.
 - **Multi-step work, two ways.** Steps inside one experiment (one-pot or telescoped sequences done in one session):
   each step has its own reagents and condition stages (e.g. 0 °C, 15 min; then rt, 2 h) and starts from the previous
   step's product. **Sequences** link separate experiments, e.g. one per step on different days, also after the fact:
@@ -19,25 +20,30 @@ as its chemical data source and runs as its own Docker container (built for Unra
   solution type. Molar mass, density, bp, mp, flash point, GHS pictograms and H-statements, plus DOT transport class,
   NFPA 704 rating and reactivity alerts, come from PubChem Local and are shown on every row. Values can be overridden
   (marked *edited*, one click restores them), and grade, supplier, lot, notes and extra hazard notes can be added.
-- **Planned and actual amounts.** Plan in g, mL, mmol or equivalents; record what you actually weighed or measured.
-  The deviation is shown, the measurement is logged, and the limiting reagent and yields use the actual amounts.
+- **Planned and actual amounts.** Plan in g, mL, mmol or equivalents; record what you actually weighed or measured
+  in the table, in the Bench checklist or in the log ("Amount used", or the amounts of "Add" entries, which add up
+  over several portions). The log is the record: the deviation is shown, and the limiting reagent and yields use the
+  actual amounts.
 - **Yields:** theoretical (from stoichiometry), expected (literature, linked to a reference), crude and isolated
   (actual), per step and overall.
 - **Procedure as numbered steps** with notes, checkboxes and `@` mentions that print the chemical's amount
   (`Add @NaBH4` → "Add NaBH4 (0.189 g, 5.00 mmol, 0.500 equiv)").
-- **Log next to the procedure.** Every entry records the time of day and T+ from the start of the experiment.
-  Structured actions write standard sentences: add (portionwise/dropwise, over a time), quench, extract
-  (4 × 25 mL DCM), wash, dry, filter, concentrate, heat/cool, stir, TLC (eluent, Rf), purify, product mass,
-  measurements, observations. Solvent use from the log is totalled per chemical.
-- **Timers:** stopwatches started from an action ("Addition of NaBH4") that log their duration when stopped, and
-  countdowns with a sound, vibration and notification alert. Timers keep running across reloads and devices.
+- **Log next to the procedure,** oldest entry first, with the composer underneath. Every entry records the time of day
+  and T+ from the start of the experiment and belongs to the procedure step that was current. Structured actions
+  write standard sentences: add (portionwise/dropwise, over a time), amount used, quench, extract (4 × 25 mL DCM),
+  wash, dry, filter, concentrate, heat/cool, stir, TLC (eluent, Rf), purify, product mass, measurements,
+  observations. `@` inserts a chemical in any log text. Solvent use from the log is totalled per chemical.
+- **Timers:** stopwatches ("Addition of @NaBH4") that log their duration when stopped, and countdowns with a sound,
+  vibration and notification alert. Started from the composer or from an action; they keep running across reloads
+  and devices.
 - **References as numbered rows** (authors, title, journal, year, volume, pages, DOI) or free text; PubChem citations
   are added automatically.
 - **Lab report** as PDF, Markdown or a printable HTML page. The reagent table shows the measured amount of each
   chemical (the planned one, marked, when nothing was measured), its properties and its hazards: pictograms, signal
-  word, H-codes (full statements listed once below the table), flash point, DOT, NFPA and reactivity alerts. A
-  multi-step experiment has an overall scheme and then one chapter per step with its own scheme, reagents, procedure,
-  log and yield.
+  word, H-codes (full statements listed once below the table), flash point, DOT, NFPA and reactivity alerts.
+  Procedure and log are side by side: each procedure step next to the entries logged during it. A multi-step
+  experiment has an overall scheme and then one chapter per step with its own scheme, reagents, procedure and log,
+  and yield.
 - Works without PubChem Local too: all data can be entered by hand.
 
 Single user, no login. Intended for your LAN or Tailscale; the layout adapts from laptop (procedure and log side by
