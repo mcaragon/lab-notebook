@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+{% set page_title = title %}{% include "_styles.html" %}
+</head>
+<body>
+<main>
+{% if not for_pdf %}<div class="noprint"><button onclick="window.print()">Print / save as PDF</button></div>{% endif %}
+<h1>{{ title }}</h1>
+<div class="meta"><span>{{ chapters | length }} experiment{{ 's' if chapters | length != 1 }}</span>{% if lab_name %}<span>{{ lab_name }}</span>{% endif %}</div>
+{% if proj.notes %}<div class="prose">{{ proj.notes | md | safe }}</div>{% endif %}
+
+{% if map_svg %}
+<h2>Route map</h2>
+<div class="route-box">{{ map_svg | safe }}</div>
+{% endif %}
+{% if scheme_html %}
+<h2>{{ 'Route' if not leaf else 'Route to ' ~ leaf }}</h2>
+<div class="scheme-box">{{ scheme_html | safe }}</div>
+{% endif %}
+
+{% if summary %}
+<table>
+  <thead><tr><th class="num">#</th><th>Experiment</th><th>From</th><th>Product</th><th class="num">Isolated</th><th class="num">Yield</th><th class="num">Left</th><th class="num">Overall</th></tr></thead>
+  <tbody>
+  {% for r in summary %}
+  <tr><td class="num">{{ r.n }}</td><td>{{ r.title }}<br><span class="small">{{ r.date or '' }}</span></td>
+    <td class="small">{% for f in r['from'] %}{{ f.title }}{% if f.taken_g is not none %} ({{ f.taken_g | fmt }} g){% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+    <td>{% if r.number %}<b>{{ r.number }}</b> {% endif %}{{ (r.product.label or r.product.name) if r.product else '' }}</td>
+    <td class="num">{% if r.isolated_g is not none %}{{ r.isolated_g | fmt }} g{% endif %}</td>
+    <td class="num">{% if r['yield'] is not none %}<strong>{{ '%.1f' % r['yield'] }}%</strong>{% endif %}</td>
+    <td class="num">{% if r.remaining_g is not none %}{{ r.remaining_g | fmt }} g{% endif %}</td>
+    <td class="num">{% if r.overall_yield is not none %}{{ '%.1f' % r.overall_yield }}%<br><span class="small">{{ r.lls }} steps</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if overall_yield is not none %}<p><strong>Overall yield:</strong> {{ '%.1f' % overall_yield }}% over {{ lls }} steps</p>{% endif %}
+{% endif %}
+
+{% for ch in chapters %}
+<div class="chapter" style="break-before: page">
+<h2>{{ loop.index }}. {{ ch.exp.title }}</h2>
+{% with c = ch, lvl = 3 %}{% include "chapter.html" %}{% endwith %}
+</div>
+{% endfor %}
+<footer>Generated {{ generated }} by Lab Notebook.</footer>
+</main>
+</body>
+</html>

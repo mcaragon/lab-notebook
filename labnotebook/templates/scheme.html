@@ -16,6 +16,7 @@
   .scheme .arrow .above, .scheme .arrow .below { min-height: 1.3em; }
   .scheme .arrow .above { padding-bottom: 2px; }
   .scheme .arrow .below { padding-top: 2px; color: #333; }
+  .scheme .arrow.stacked { max-width: 260px; text-align: left; }
   .scheme .shaft { position: relative; height: 0; border-top: 1.6px solid #1b1f24; margin-right: 7px; }
   .scheme .shaft::after { content: ""; position: absolute; right: -8px; top: -5.3px; width: 0; height: 0;
     border-left: 9px solid #1b1f24; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; }
@@ -43,11 +44,15 @@
     </div>
     {%- if not loop.first and sch.segments[loop.index0 - 1].type == 'arrow' %}</div>{% endif %}
     {%- else %}
-    <div class="arrow" data-step="{{ seg.step_id }}">
+    <div class="arrow{{ ' stacked' if seg.stacked }}" data-reaction="{{ seg.reaction_id }}">
       {%- if sch.lettered %}
       <div class="above letter">({{ seg.letter }})</div><div class="shaft"></div><div class="below"></div>
       {%- else %}
+      {%- if seg.stacked %}
+      <div class="above">{% for l in seg.above %}<div>{{ l }}</div>{% endfor %}</div><div class="shaft"></div><div class="below">{% for l in seg.below %}<div>{{ l }}</div>{% endfor %}</div>
+      {%- else %}
       <div class="above">{{ seg.above | join(', ') }}</div><div class="shaft"></div><div class="below">{{ seg.below | join(', ') }}</div>
+      {%- endif %}
       {%- endif %}
     </div>
     {%- if loop.last or sch.segments[loop.index0 + 1].type != 'mols' %}</div>{% endif %}

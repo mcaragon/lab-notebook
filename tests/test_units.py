@@ -1,4 +1,4 @@
-"""Actions, hazards, scheme layout, mentions and the v1 -> v2 database migration."""
+"""Actions, hazards, scheme layout, mentions and the database migrations."""
 import json
 import sqlite3
 from pathlib import Path
@@ -74,10 +74,19 @@ def _bundle(style="auto"):
     return {"experiment": {"scheme_style": style}, "steps": steps, "reagents": reagents, "entries": [], "refs": []}
 
 
-def test_scheme_layout_multistep():
-    b = _bundle()
-    calc = compute_experiment(b["steps"], b["reagents"], db.stoich_rows)
-    sch = scheme.build(b, calc)
+def _two_reactions(style="auto"):
+    """The bundle as two experiments: reduction, then oxidation of its product."""
+    b = _bundle(style)
+    rx = [{"id": i, "stages": [s], "reagents": [r for r in b["reagents"] if r["step_id"] == s["id"]]}
+          for i, s in enumerate(b["steps"], 1)]
+    rows = compute_experiment(b["steps"][:1], rx[0]["reagents"], db.stoich_rows)["rows"]
+    rows.update(compute_experiment(b["steps"][1:], rx[1]["reagents"], db.stoich_rows)["rows"])
+    return rx, rows
+
+
+def test_scheme_route_of_two_experiments():
+    rx, rows = _two_reactions()
+    sch = scheme.build(rx, rows)
     kinds = [s["type"] for s in sch["segments"]]
     assert kinds == ["mols", "arrow", "mols", "arrow", "mols"]
     a1, a2 = sch["segments"][1], sch["segments"][3]
@@ -89,22 +98,58 @@ def test_scheme_layout_multistep():
     assert [m["number"] for m in sch["segments"][2]["mols"]] == [2]
     assert [m["number"] for m in sch["segments"][4]["mols"]] == [1]
     assert sch["segments"][2]["mols"][0]["yield"] == pytest.approx(0.9 / 1.0814 * 100)
-    assert sch["lettered"]  # long text / several steps -> lettered automatically
+    assert sch["lettered"]  # long text -> lettered automatically
     assert sch["legend"][0] == ("a", "NaBH4 (0.50 equiv), MeOH, N₂, 0 °C, 15 min; then rt, 2 h")
-    assert not scheme.build(_bundle("inline"), calc)["lettered"]
+    assert not scheme.build(rx, rows, "inline")["lettered"]
+    # a later experiment keeps the numbers of compounds seen before (idents)
+    first = scheme.build(rx[:1], rows)
+    second = scheme.build(rx[1:], rows, numbers=first["numbers"], idents=first["idents"])
+    assert [m["number"] for s in second["segments"] if s["type"] == "mols" for m in s["mols"]] == [2, 1]
+
+
+def test_scheme_one_pot_stages():
+    """One experiment, two stages: one arrow with numbered lines; a reactant of stage 2 is written on the arrow."""
+    stages = [{"id": 1, "conditions": [{"temperature": "reflux", "duration": "1 h"}]},
+              {"id": 2, "conditions": [{"temperature": "0"}]}]
+    r = lambda **k: {"form": "neat", "coefficient": 1, "scheme_pos": "auto", **k}  # noqa: E731
+    reagents = [r(id=1, step_id=1, role="reactant", name="Bromobenzene", cid=7961, mw=157.0, basis="mmol", basis_value=10),
+                r(id=2, step_id=1, role="reagent", name="Magnesium", label="Mg", mw=24.3, basis="equiv", basis_value=1.2),
+                r(id=3, step_id=1, role="solvent", name="Tetrahydrofuran", label="THF"),
+                r(id=4, step_id=2, role="reactant", name="Benzaldehyde", label="PhCHO", cid=240, mw=106.1,
+                  basis="equiv", basis_value=0.9),
+                r(id=5, step_id=2, role="product", name="Benzhydrol", cid=7037, mw=184.2)]
+    b = {"experiment": {"scheme_style": "inline"}, "steps": stages, "reagents": reagents}
+    sch = scheme.build_experiment(b, compute_experiment(stages, reagents, db.stoich_rows))
+    assert [s["type"] for s in sch["segments"]] == ["mols", "arrow", "mols"]
+    arrow = sch["segments"][1]
+    assert arrow["stacked"]
+    assert arrow["above"] == ["1. Mg (1.2 equiv), THF, reflux, 1 h"]
+    assert arrow["below"] == ["2. PhCHO (0.90 equiv), 0 °C"]
+    assert [m["reagent"]["name"] for m in sch["segments"][0]["mols"]] == ["Bromobenzene"]
 
 
 def test_scheme_positions():
     b = _bundle("inline")
+    b["steps"] = b["steps"][:1]
+    b["reagents"] = [r for r in b["reagents"] if r["step_id"] == 1]
     b["reagents"][1]["scheme_pos"] = "below"
     b["reagents"][2]["scheme_pos"] = "hidden"
     calc = compute_experiment(b["steps"], b["reagents"], db.stoich_rows)
-    a1 = scheme.build(b, calc)["segments"][1]
+    a1 = scheme.build_experiment(b, calc)["segments"][1]
     assert a1["above"] == [] and a1["below"][0] == "NaBH4 (0.50 equiv)" and "MeOH" not in a1["below"]
+
+
+def test_guess_phase():
+    assert db.guess_phase("Quench with sat. NH4Cl and extract with DCM (3 × 20 mL)") == "workup"
+    assert db.guess_phase("Purify by flash column chromatography") == "purification"
+    assert db.guess_phase("Record the 1H NMR spectrum") == "analysis"
+    assert db.guess_phase("Flame-dry a 100 mL flask under N2") == "setup"
+    assert db.guess_phase("Add NaBH4 in portions over 10 min") == "reaction"
 
 
 def test_mentions():
     b = _bundle()
+    b["reagents"] = [r for r in b["reagents"] if r["step_id"] == 1]
     rows = compute_experiment(b["steps"], b["reagents"], db.stoich_rows)["rows"]
     rs = b["reagents"]
     assert scheme.render_mentions("Add @NaBH4, then stir.", rs, rows) == \
@@ -161,6 +206,60 @@ def test_migration_from_v1(tmp_path):
     with sqlite3.connect(path) as c2:
         assert c2.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
     db.Store(path)  # opening again is a no-op
+
+
+def test_migration_v2_splits_multistep_experiments(tmp_path):
+    """A v2 multi-step experiment becomes one experiment per step, linked by the intermediate, in a project."""
+    path = tmp_path / "notebook.sqlite"
+    store = db.Store(path)
+    eid = store.create_experiment({"title": "Two steps", "objective": "Make C"})
+    s1 = store.list("steps", "experiment_id = ?", (eid,))[0]["id"]
+    s2 = store.insert("steps", {"title": "Oxidation"}, experiment_id=eid)
+    store.update_experiment(eid, {"started_at": "2026-01-01T10:00:00+00:00", "ended_at": "2026-01-01T15:00:00+00:00"})
+    a = store.add_reagent(eid, {"name": "A", "role": "reactant", "step_id": s1, "mw": 100, "basis": "mmol", "basis_value": 10})
+    b = store.add_reagent(eid, {"name": "B", "role": "product", "step_id": s1, "mw": 100, "actual_mass_g": 0.8})
+    store.add_reagent(eid, {"name": "B", "role": "reactant", "step_id": s2, "mw": 100, "source_reagent_id": b,
+                            "basis": "mass", "basis_value": 0.8})
+    store.add_reagent(eid, {"name": "C", "role": "product", "step_id": s2, "mw": 100, "actual_mass_g": 0.4})
+    store.insert("procedure", {"text": "Dissolve A.", "step_id": s1}, experiment_id=eid)
+    store.insert("procedure", {"text": "Extract with DCM.", "step_id": s1}, experiment_id=eid)
+    p3 = store.insert("procedure", {"text": "Oxidize B.", "step_id": s2}, experiment_id=eid)
+    store.insert("entries", {"ts": "2026-01-01T10:05:00+00:00", "action": "note", "text": "step 1 note", "step_id": s1},
+                 experiment_id=eid)
+    store.insert("entries", {"ts": "2026-01-01T13:00:00+00:00", "action": "note", "text": "step 2 note",
+                             "procedure_id": p3}, experiment_id=eid)
+    store.insert("entries", {"ts": "2026-01-01T13:30:00+00:00", "action": "note", "text": "after it"},
+                 experiment_id=eid)
+    store.insert("refs", {"text": "Org. Synth."}, experiment_id=eid)
+    # make it look like a v2 database: no phase columns, sequences instead of projects
+    with sqlite3.connect(path) as c:
+        c.executescript("""
+            DROP TABLE project_items; DROP TABLE projects;
+            ALTER TABLE procedure DROP COLUMN phase; ALTER TABLE experiments DROP COLUMN phases;
+            CREATE TABLE sequences (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '', notes TEXT,
+              scheme_style TEXT NOT NULL DEFAULT 'auto', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+            CREATE TABLE sequence_items (id INTEGER PRIMARY KEY,
+              sequence_id INTEGER NOT NULL REFERENCES sequences(id) ON DELETE CASCADE,
+              experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+              position INTEGER NOT NULL DEFAULT 0, UNIQUE (sequence_id, experiment_id));
+            PRAGMA user_version = 2;""")
+    store = db.Store(path)
+    exps = store.list_experiments()
+    assert sorted(e["title"] for e in exps) == ["Two steps — step 1", "Two steps — step 2: Oxidation"]
+    new = next(e["id"] for e in exps if e["id"] != eid)
+    b1, b2 = store.bundle(eid), store.bundle(new)
+    assert [r["name"] for r in b1["reagents"]] == ["A", "B"] and [r["name"] for r in b2["reagents"]] == ["B", "C"]
+    assert b2["reagents"][0]["source_reagent_id"] == b  # linked to the first experiment's product
+    assert [p["text"] for p in b1["procedure"]] == ["Dissolve A.", "Extract with DCM."]
+    assert [p["phase"] for p in b1["procedure"]] == ["reaction", "workup"]
+    assert [e["text"] for e in b1["entries"]] == ["step 1 note"]
+    assert [e["text"] for e in b2["entries"]] == ["step 2 note", "after it"]
+    assert b2["experiment"]["started_at"] == "2026-01-01T13:00:00+00:00" and b2["entries"][1]["elapsed_s"] == 1800
+    assert [r["text"] for r in b2["refs"]] == ["Org. Synth."] and b2["experiment"]["objective"] == "Make C"
+    projs = store.list_projects()
+    assert len(projs) == 1 and [e["id"] for e in projs[0]["experiments"]] == [eid, new]
+    db.Store(path)  # opening again is a no-op
+    assert len(store.list_experiments()) == 2 and a
 
 
 def test_pair_procedure_log():

@@ -14,7 +14,7 @@ from typing import Any, Callable, Optional
 import markdown as md
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from . import actions, db, hazards, scheme
+from . import actions, db, hazards, projects, scheme
 from .pubchem import PubChemClient, PubChemUnavailable
 from .structures import structure
 
@@ -191,7 +191,7 @@ def _scheme_html(sch: dict, img_src: Callable[[dict, int, int], Optional[str]]) 
 
 def scheme_html(bundle: dict, calc: dict, img_src: Callable[[dict, int, int], Optional[str]]) -> str:
     """The reaction scheme as an HTML fragment (``img_src(reagent, w, h)`` gives each structure's image URL)."""
-    return _scheme_html(scheme.build(bundle, calc), img_src)
+    return _scheme_html(scheme.build_experiment(bundle, calc), img_src)
 
 
 def _data_uri(item: Optional[tuple[bytes, str]]) -> Optional[str]:
@@ -284,33 +284,33 @@ def pair_procedure_log(procedure: list[dict], log: list[dict]) -> list[dict]:
     return ([before] if before["entries"] else []) + rows
 
 
-def _assign_entries(bundle: dict) -> dict[int, Any]:
-    """Step of each log entry: its own, its procedure row's, or that of the entry before it."""
-    steps = bundle["steps"]
-    if not steps:
-        return {}
-    proc_step = {p["id"]: p.get("step_id") for p in bundle["procedure"]}
-    timer_proc = {t["id"]: t.get("procedure_id") for t in bundle.get("timers", [])}
-    valid = {s["id"] for s in steps}
-    out, last = {}, steps[0]["id"]
-    for e in bundle["entries"]:
-        sid = e.get("step_id")
-        if sid not in valid:
-            pid = e.get("procedure_id") or timer_proc.get(e.get("timer_id"))
-            sid = proc_step.get(pid)
-        if sid not in valid:
-            sid = last
-        out[e["id"]] = sid
-        last = sid
+def phase_groups(phases: list[dict], proc_log: list[dict]) -> list[dict]:
+    """Procedure-and-log rows by phase, in phase order; phases without rows are left out. Log entries made before
+    the first procedure row open the first group."""
+    groups = [{"key": p["key"], "label": p["label"], "rows": []} for p in phases]
+    by_key = {g["key"]: g for g in groups}
+    before = []
+    for row in proc_log:
+        if row["p"] is None:
+            before.append(row)
+        else:
+            by_key.get(row["p"].get("phase"), by_key[db.DEFAULT_PHASE])["rows"].append(row)
+    out = [g for g in groups if g["rows"]]
+    if before:
+        if out:
+            out[0]["rows"] = before + out[0]["rows"]
+        else:
+            out = [{"key": "log", "label": "Log", "rows": before}]
     return out
 
 
 def build_context(bundle: dict, calc: dict, settings: Any = None,
                   client: Optional[PubChemClient] = None, images: Optional[tuple[dict, dict]] = None,
-                  numbers: Optional[dict] = None, step_offset: int = 0) -> dict:
-    """Everything the report templates need. With ``client``, structures and pictograms are embedded.
+                  numbers: Optional[dict] = None, step_offset: int = 0, idents: Optional[dict] = None) -> dict:
+    """Everything the report templates need for one experiment. With ``client``, structures and pictograms are
+    embedded.
 
-    ``numbers`` and ``step_offset`` let a chapter of a sequence report use the route's compound numbers and arrow
+    ``numbers`` and ``step_offset`` let a chapter of a project report use the project's compound numbers and arrow
     letters."""
     exp = bundle["experiment"]
     rows = calc["rows"]
@@ -319,43 +319,33 @@ def build_context(bundle: dict, calc: dict, settings: Any = None,
     ref_no = {r["id"]: i for i, r in enumerate(bundle["refs"], 1)}
     structures_by_id, ghs = images or embedded_images(reagents, client)
     img = lambda r, w, h: structures_by_id.get(r["id"])  # noqa: E731
-    multi = len(bundle["steps"]) > 1
+    stages = bundle["steps"]
+    multi_stage = len(stages) > 1
+    stage_no = {s["id"]: i for i, s in enumerate(stages, 1)}
 
-    overall = scheme.build(bundle, calc, numbers=numbers, first_index=step_offset)
-    entry_step = _assign_entries(bundle)
-    first_step = bundle["steps"][0]["id"] if bundle["steps"] else None
+    sch = scheme.build_experiment(bundle, calc, numbers=numbers, first_index=step_offset, idents=idents)
     exp_date = exp.get("date") or ""
-
-    steps = []
-    for i, s in enumerate(bundle["steps"]):
-        rs = [_row(r, rows.get(r["id"], {}), use.get(r["id"], {}), ref_no)
-              for r in reagents if r.get("step_id") == s["id"]]
-        inputs = [x for x in rs if x["r"]["role"] != "product"]
-        legend: dict[str, str] = {}
-        for x in rs:
-            for code, text in zip(x["haz"]["codes"], x["haz"]["statements"]):
-                legend.setdefault(code, text)
-        proc_rows = [p for p in bundle["procedure"]
-                     if p.get("step_id") == s["id"] or (p.get("step_id") is None and s["id"] == first_step)
-                     or (not multi)]
-        procedure = [{**p, "n": n, "rendered": scheme.render_mentions(p.get("text") or "", reagents, rows),
-                      "html": scheme.render_mentions(p.get("text") or "", reagents, rows, mode="html")}
-                     for n, p in enumerate(proc_rows, 1)]
-        proc_no = {p["id"]: p["n"] for p in procedure}
-        log = [{**e, "time": fmt_ts(e["ts"], with_date=not exp_date or not (e["ts"] or "").startswith(exp_date)),
-                "tplus": fmt_elapsed(e.get("elapsed_s")), "proc_no": proc_no.get(e.get("procedure_id"))}
-               for e in bundle["entries"] if entry_step.get(e["id"]) == s["id"]]
-        step_scheme = scheme.build_step(bundle, calc, i, overall["numbers"], step_offset) if multi else None
-        steps.append({
-            "s": s, "n": i + 1, "letter": chr(ord("a") + i), "inputs": inputs,
-            "products": [x for x in rs if x["r"]["role"] == "product"],
-            "legend": sorted(legend.items(), key=lambda kv: kv[0]),
-            "planned_only": any(x["planned_only"] for x in inputs),
-            "conditions": scheme.conditions_text(s), "procedure": procedure, "log": log,
-            "proc_log": pair_procedure_log(procedure, log),
-            "scheme_html": _scheme_html(step_scheme, img) if step_scheme and not step_scheme["empty"] else "",
-            "yield": calc["steps"].get(s["id"], {}).get("step_yield"),
-        })
+    rs = []
+    for r in reagents:
+        x = _row(r, rows.get(r["id"], {}), use.get(r["id"], {}), ref_no)
+        x["stage"] = stage_no.get(r.get("step_id"), 1) if multi_stage else None
+        rs.append(x)
+    inputs = [x for x in rs if x["r"]["role"] != "product"]
+    if multi_stage:
+        inputs.sort(key=lambda x: x["stage"])
+    legend: dict[str, str] = {}
+    for x in rs:
+        for code, text in zip(x["haz"]["codes"], x["haz"]["statements"]):
+            legend.setdefault(code, text)
+    procedure = [{**p, "n": n, "rendered": scheme.render_mentions(p.get("text") or "", reagents, rows),
+                  "html": scheme.render_mentions(p.get("text") or "", reagents, rows, mode="html")}
+                 for n, p in enumerate(bundle["procedure"], 1)]
+    proc_no = {p["id"]: p["n"] for p in procedure}
+    log = [{**e, "time": fmt_ts(e["ts"], with_date=not exp_date or not (e["ts"] or "").startswith(exp_date)),
+            "tplus": fmt_elapsed(e.get("elapsed_s")), "proc_no": proc_no.get(e.get("procedure_id"))}
+           for e in bundle["entries"]]
+    proc_log = pair_procedure_log(procedure, log)
+    groups = phase_groups(db.phase_list(exp), proc_log)
 
     sections = {k: (exp.get(k) or "").strip() for k in db.SECTION_KEYS}
     refs = [{"n": i, "text": format_ref(r)} for i, r in enumerate(bundle["refs"], 1) if format_ref(r)]
@@ -365,9 +355,15 @@ def build_context(bundle: dict, calc: dict, settings: Any = None,
             cids.add(r["cid"])
             cited.append(r)
     return {
-        "exp": exp, "steps": steps, "multi": multi, "overall_yield": calc.get("overall_yield"),
+        "exp": exp, "inputs": inputs, "products": [x for x in rs if x["r"]["role"] == "product"],
+        "legend": sorted(legend.items(), key=lambda kv: kv[0]),
+        "planned_only": any(x["planned_only"] for x in inputs),
+        "multi_stage": multi_stage,
+        "stages": [{"n": i, "s": s, "conditions": scheme.conditions_text(s)} for i, s in enumerate(stages, 1)],
+        "procedure": procedure, "log": log, "proc_log": proc_log, "phase_groups": groups,
+        "yield": calc.get("yield"),
         "sections": sections, "headings": dict(db.SECTIONS), "refs": refs, "cited": cited, "n_refs": len(refs),
-        "scheme": overall, "scheme_html": _scheme_html(overall, img),
+        "scheme": sch, "scheme_html": _scheme_html(sch, img),
         "status_label": (exp.get("status") or "").replace("_", " ").capitalize(),
         "lab_name": getattr(settings, "lab_name", "") if settings else "",
         "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M"),
@@ -377,23 +373,54 @@ def build_context(bundle: dict, calc: dict, settings: Any = None,
     }
 
 
-def build_sequence_context(seq: dict, bundles: list[dict], calcs: list[dict], settings: Any = None,
-                           client: Optional[PubChemClient] = None) -> dict:
-    """A sequence report: overall scheme and yields, then one chapter per experiment."""
-    from . import sequences
+def project_numbers(g: dict, bundles: list[dict], calcs: list[dict]) -> tuple[dict, dict]:
+    """Compound numbers across a project, in route order: ``(numbers by reagent id, numbers by compound)``. A product
+    keeps its number where it is used, and the same compound keeps one number throughout."""
+    by_id = {b["experiment"]["id"]: (b, c) for b, c in zip(bundles, calcs)}
+    numbers: dict = {}
+    idents: dict = {}
+    for eid in projects.topo_order(g):
+        b, c = by_id[eid]
+        sch = scheme.build_experiment(b, c, numbers=numbers, idents=idents)
+        numbers, idents = sch["numbers"], sch["idents"]
+    return numbers, idents
 
-    combined, ccalc = sequences.compute(bundles)
-    images = embedded_images(combined["reagents"], client)
+
+def build_project_context(proj: dict, bundles: list[dict], calcs: list[dict], g: dict, settings: Any = None,
+                          client: Optional[PubChemClient] = None, leaf: Optional[int] = None) -> dict:
+    """A project report: route map and summary, then one chapter per experiment in route order.
+
+    With ``leaf``, only the route to that experiment (it and everything that feeds it), with its linear scheme."""
+    by_id = {b["experiment"]["id"]: (b, c) for b, c in zip(bundles, calcs)}
+    ids = projects.ancestors(g, leaf) if leaf is not None else projects.topo_order(g)
+    numbers, idents = project_numbers(g, bundles, calcs)
+    included = [by_id[i] for i in ids]
+    images = embedded_images([r for b, _ in included for r in b["reagents"]], client)
     img = lambda r, w, h: images[0].get(r["id"])  # noqa: E731
-    sch = scheme.build(dict(combined, experiment={"scheme_style": seq.get("scheme_style")}), ccalc)
-    summary = sequences.summary(bundles, ccalc)
-    chapters, offset = [], 0
-    for b, c in zip(bundles, calcs):
-        chapters.append(build_context(b, c, settings, images=images, numbers=sch["numbers"], step_offset=offset))
-        offset += len(b["steps"])
+    node = {x["id"]: x for x in g["nodes"]}
+    linear = all(len(node[i]["children"]) <= 1 and len(node[i]["parents"]) <= 1 for i in ids) and \
+        sum(1 for i in ids if not node[i]["parents"]) <= 1
+    chain = projects.main_chain(g, leaf) if leaf is not None else (ids if linear else [])
+    sch = None
+    if len(chain) > 1:
+        rxs = [scheme.reaction_of(by_id[i][0]) for i in chain]
+        sch = scheme.build(rxs, projects.combined_calc([by_id[i][1] for i in chain])["rows"],
+                           proj.get("scheme_style") or "auto", numbers, idents=idents)
+    chapters = [build_context(b, c, settings, images=images, numbers=numbers, step_offset=n, idents=idents)
+                for n, (b, c) in enumerate(included)]
+    summary = projects.summary_rows(g, ids)
+    for r in summary:
+        r["number"] = numbers.get(r["product"]["id"]) if r["product"] else None
+    target = node[leaf]["title"] if leaf is not None else None
     return {
-        "seq": seq, "chapters": chapters, "scheme": sch, "scheme_html": _scheme_html(sch, img), "summary": summary,
-        "overall_yield": sequences.overall_yield(summary), "lab_name": getattr(settings, "lab_name", "") if settings else "",
+        "proj": proj, "title": proj["title"] + (f" — route to {target}" if target else ""), "leaf": target,
+        "chapters": chapters, "summary": summary,
+        "map_svg": projects.route_svg(g, img, numbers, link=False, only=set(ids), inline_css=True)
+        if len(ids) > 1 else "",
+        "scheme": sch, "scheme_html": _scheme_html(sch, img) if sch and not sch["empty"] else "",
+        "overall_yield": node[leaf]["overall_yield"] if leaf is not None else
+        (node[chain[-1]]["overall_yield"] if chain else None),
+        "lls": len(chain), "lab_name": getattr(settings, "lab_name", "") if settings else "",
         "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M"), "ghs": images[1], "ghs_names": GHS_NAMES,
     }
 
@@ -450,42 +477,48 @@ def _md_hazard(h: dict) -> str:
     return "; ".join(parts)
 
 
-def _md_step(ctx: dict, st: dict, lvl: int) -> list[str]:
-    h = "#" * lvl
+def _md_reagents(ctx: dict) -> list[str]:
     out: list[str] = []
-    if st["inputs"]:
-        body = []
-        for x in st["inputs"]:
-            r = x["r"]
-            name = r.get("name") or "?"
-            extra = [v for v in (x["form"], x["provenance"], r.get("notes")) if v]
-            if extra:
-                name += f" ({'; '.join(extra)})"
-            if x["c"].get("is_limiting"):
-                name += " — limiting"
-            props = [p for p in (f"d {fmt(r['density'])}" if r.get("density") else "",
-                                 f"bp {fmt_fixed(r['bp'], 0)}" if r.get("bp") is not None else "",
-                                 f"mp {fmt_fixed(r['mp'], 0)}" if r.get("mp") is not None else "") if p]
-            body.append([name, x["role"], fmt_fixed(r.get("mw"), 2), x["amount"] + (" *" if x["planned_only"] else ""),
-                         fmt(x["mmol"]), fmt_fixed(x["equiv"], 2), ", ".join(props), _md_hazard(x["haz"])])
-        out += _table(["Compound", "Role", "MW", "Amount", "mmol", "equiv", "Properties", "Hazards"],
-                      ["l", "l", "r", "r", "r", "r", "l", "l"], body)
-        if st["planned_only"]:
-            out += ["\\* planned amount; no measurement recorded.", ""]
-        if st["legend"]:
-            out += ["Hazard statements: " + "; ".join(text for _, text in st["legend"]), ""]
-    def entry_line(e: dict) -> str:
-        val = f" ({e['value']} {e.get('unit') or ''})".rstrip() if e.get("value") else ""
-        when = e["time"] + (f", T+{e['tplus']}" if e["tplus"] else "")
-        return f"{when}: {e['text']}{val}"
+    body = []
+    for x in ctx["inputs"]:
+        r = x["r"]
+        name = r.get("name") or "?"
+        extra = [v for v in (x["form"], x["provenance"], r.get("notes")) if v]
+        if extra:
+            name += f" ({'; '.join(extra)})"
+        if x["c"].get("is_limiting"):
+            name += " — limiting"
+        props = [p for p in (f"d {fmt(r['density'])}" if r.get("density") else "",
+                             f"bp {fmt_fixed(r['bp'], 0)}" if r.get("bp") is not None else "",
+                             f"mp {fmt_fixed(r['mp'], 0)}" if r.get("mp") is not None else "") if p]
+        role = (f"{x['stage']}. " if x.get("stage") else "") + x["role"]
+        body.append([name, role, fmt_fixed(r.get("mw"), 2), x["amount"] + (" *" if x["planned_only"] else ""),
+                     fmt(x["mmol"]), fmt_fixed(x["equiv"], 2), ", ".join(props), _md_hazard(x["haz"])])
+    out += _table(["Compound", "Stage · role" if ctx["multi_stage"] else "Role", "MW", "Amount", "mmol", "equiv",
+                   "Properties", "Hazards"], ["l", "l", "r", "r", "r", "r", "l", "l"], body)
+    if ctx["planned_only"]:
+        out += ["\\* planned amount; no measurement recorded.", ""]
+    if ctx["legend"]:
+        out += ["Hazard statements: " + "; ".join(text for _, text in ctx["legend"]), ""]
+    return out
 
-    if st["procedure"]:
-        out += [f"{h} Procedure and log", ""]
-        for row in st["proc_log"]:
+
+def _entry_line(e: dict) -> str:
+    val = f" ({e['value']} {e.get('unit') or ''})".rstrip() if e.get("value") else ""
+    when = e["time"] + (f", T+{e['tplus']}" if e["tplus"] else "")
+    return f"{when}: {e['text']}{val}"
+
+
+def _md_procedure(ctx: dict, lvl: int) -> list[str]:
+    h = "#" * lvl
+    out: list[str] = [f"{h} Procedure and log", ""]
+    for grp in ctx["phase_groups"]:
+        out += [f"{h}# {grp['label']}", ""]
+        for row in grp["rows"]:
             p = row["p"]
             if p is None:
                 out.append("*Before the procedure:*")
-                out += [f"- {entry_line(e)}" for e in row["entries"]]
+                out += [f"- {_entry_line(e)}" for e in row["entries"]]
                 out.append("")
                 continue
             line = f"{p['n']}. {p['rendered']}"
@@ -494,38 +527,33 @@ def _md_step(ctx: dict, st: dict, lvl: int) -> list[str]:
             out.append(line)
             if p.get("notes"):
                 out.append(f"   - *Note:* {p['notes']}")
-            out += [f"   - {entry_line(e)}" for e in row["entries"]]
+            out += [f"   - {_entry_line(e)}" for e in row["entries"]]
         out.append("")
-    elif st["log"]:
-        out += [f"{h} Log", ""]
-        out += _table(["Time", "T+", "Step", "Entry"], ["l", "r", "r", "l"],
-                      [[e["time"], e["tplus"], e["proc_no"] or "",
-                        e["text"] + (f" ({e['value']} {e.get('unit') or ''})".rstrip() if e.get("value") else "")]
-                       for e in st["log"]])
-    if st["products"]:
-        out += [f"{h} Yield", ""]
-        body = []
-        for x in st["products"]:
-            r, c = x["r"], x["c"]
-            theo = f"{fmt(c['theoretical_mass_g'])} g ({fmt(c['theoretical_mmol'])} mmol)" \
-                if c.get("theoretical_mass_g") is not None else ""
-            expd = ""
-            if c.get("expected_yield_pct") is not None:
-                expd = f"{c['expected_yield_pct']:.0f}%"
-                if c.get("expected_mass_g") is not None:
-                    expd += f" ({fmt(c['expected_mass_g'])} g)"
-                if x["expected_ref"]:
-                    expd += f" [{x['expected_ref']}]"
-            crude = (f"{fmt(c['crude_mass_g'])} g" + (f" ({c['crude_percent']:.0f}%)" if c.get("crude_percent")
-                                                      is not None else "")) if c.get("crude_mass_g") else ""
-            iso = f"{fmt(c['isolated_mass_g'])} g" if c.get("isolated_mass_g") is not None else ""
-            if iso and c.get("isolated_mmol") is not None:
-                iso += f" ({fmt(c['isolated_mmol'])} mmol)"
-            yld = f"{c['percent_yield']:.1f}%" if c.get("percent_yield") is not None else ""
-            body.append([r.get("name"), fmt_fixed(r.get("mw"), 2), theo, expd, crude, iso, yld])
-        out += _table(["Product", "MW", "Theoretical", "Expected", "Crude", "Isolated", "Yield"],
-                      ["l", "r", "r", "r", "r", "r", "r"], body)
     return out
+
+
+def _md_yield(ctx: dict) -> list[str]:
+    body = []
+    for x in ctx["products"]:
+        r, c = x["r"], x["c"]
+        theo = f"{fmt(c['theoretical_mass_g'])} g ({fmt(c['theoretical_mmol'])} mmol)" \
+            if c.get("theoretical_mass_g") is not None else ""
+        expd = ""
+        if c.get("expected_yield_pct") is not None:
+            expd = f"{c['expected_yield_pct']:.0f}%"
+            if c.get("expected_mass_g") is not None:
+                expd += f" ({fmt(c['expected_mass_g'])} g)"
+            if x["expected_ref"]:
+                expd += f" [{x['expected_ref']}]"
+        crude = (f"{fmt(c['crude_mass_g'])} g" + (f" ({c['crude_percent']:.0f}%)" if c.get("crude_percent")
+                                                  is not None else "")) if c.get("crude_mass_g") else ""
+        iso = f"{fmt(c['isolated_mass_g'])} g" if c.get("isolated_mass_g") is not None else ""
+        if iso and c.get("isolated_mmol") is not None:
+            iso += f" ({fmt(c['isolated_mmol'])} mmol)"
+        yld = f"{c['percent_yield']:.1f}%" if c.get("percent_yield") is not None else ""
+        body.append([r.get("name"), fmt_fixed(r.get("mw"), 2), theo, expd, crude, iso, yld])
+    return _table(["Product", "MW", "Theoretical", "Expected", "Crude", "Isolated", "Yield"],
+                  ["l", "r", "r", "r", "r", "r", "r"], body)
 
 
 def _md_body(ctx: dict, lvl: int = 2) -> list[str]:
@@ -539,21 +567,13 @@ def _md_body(ctx: dict, lvl: int = 2) -> list[str]:
     if s["objective"]:
         out += [f"{h} {H['objective']}", "", s["objective"], ""]
     if not ctx["scheme"]["empty"]:
-        out += [f"{h} {'Overall reaction' if ctx['multi'] else 'Reaction'}", ""] + _md_scheme(ctx["scheme"])
-    for st in ctx["steps"]:
-        if ctx["multi"]:
-            out += [f"{h} Step {st['n']}" + (f": {st['s']['title']}" if st["s"].get("title") else ""), ""]
-            if st["s"].get("notes"):
-                out += [st["s"]["notes"], ""]
-            if st["conditions"] or st["s"].get("atmosphere"):
-                out += ["Conditions: " + ", ".join(x for x in (st["s"].get("atmosphere"), st["conditions"]) if x), ""]
-            out += _md_step(ctx, st, lvl + 1)
-        else:
-            if st["inputs"]:
-                out += [f"{h} Reagents", ""]
-            out += _md_step(ctx, st, lvl)
-    if ctx["overall_yield"] is not None:
-        out += [f"**Overall yield:** {ctx['overall_yield']:.1f}% over {len(ctx['steps'])} steps", ""]
+        out += [f"{h} Reaction", ""] + _md_scheme(ctx["scheme"])
+    if ctx["inputs"]:
+        out += [f"{h} Reagents", ""] + _md_reagents(ctx)
+    if ctx["procedure"] or ctx["log"]:
+        out += _md_procedure(ctx, lvl)
+    if ctx["products"]:
+        out += [f"{h} Yield", ""] + _md_yield(ctx)
     if s["results"]:
         out += [f"{h} {H['results']}", "", s["results"], ""]
     for key in ("discussion", "conclusion"):
@@ -575,21 +595,31 @@ def to_markdown(ctx: dict) -> str:
     return "\n".join(out)
 
 
-def sequence_markdown(ctx: dict) -> str:
-    seq = ctx["seq"]
-    out = [f"# {seq['title']}", ""]
-    if seq.get("notes"):
-        out += [seq["notes"], ""]
-    if not ctx["scheme"]["empty"]:
+def _route_table(summary: list[dict]) -> list[str]:
+    body = []
+    for r in summary:
+        frm = "; ".join(f"{f['title']}" + (f" ({fmt(f['taken_g'])} g)" if f["taken_g"] is not None else "")
+                        for f in r["from"])
+        prod = (f"**{r['number']}** " if r.get("number") else "") + (scheme.label(r["product"]) if r["product"] else "")
+        body.append([r["n"], r["title"], frm, prod, f"{fmt(r['isolated_g'])} g" if r["isolated_g"] is not None else "",
+                     f"{r['yield']:.1f}%" if r["yield"] is not None else "",
+                     f"{fmt(r['remaining_g'])} g" if r["remaining_g"] is not None else "",
+                     f"{r['overall_yield']:.1f}% ({r['lls']} steps)" if r["overall_yield"] is not None else ""])
+    return _table(["#", "Experiment", "From", "Product", "Isolated", "Yield", "Left", "Overall"],
+                  ["r", "l", "l", "l", "r", "r", "r", "r"], body)
+
+
+def project_markdown(ctx: dict) -> str:
+    proj = ctx["proj"]
+    out = [f"# {ctx['title']}", ""]
+    if proj.get("notes"):
+        out += [proj["notes"], ""]
+    if ctx["scheme"] and not ctx["scheme"]["empty"]:
         out += ["## Route", ""] + _md_scheme(ctx["scheme"])
     if ctx["summary"]:
-        out += _table(["Step", "Experiment", "Date", "Product", "Isolated", "Yield"], ["r", "l", "l", "l", "r", "r"],
-                      [[r["n"], r["experiment"]["title"], r["experiment"].get("date") or "",
-                        r["product"]["name"] if r["product"] else "",
-                        f"{fmt(r['isolated_mass_g'])} g" if r["isolated_mass_g"] is not None else "",
-                        f"{r['yield']:.1f}%" if r["yield"] is not None else ""] for r in ctx["summary"]])
+        out += ["## Experiments", ""] + _route_table(ctx["summary"])
     if ctx["overall_yield"] is not None:
-        out += [f"**Overall yield:** {ctx['overall_yield']:.1f}% over {len(ctx['summary'])} steps", ""]
+        out += [f"**Overall yield:** {ctx['overall_yield']:.1f}% over {ctx['lls']} steps", ""]
     for i, ch in enumerate(ctx["chapters"], 1):
         out += [f"## {i}. {ch['exp']['title']}", ""] + _md_body(ch, 3)
     out += ["---", f"*Generated {ctx['generated']} by Lab Notebook.*", ""]
@@ -601,8 +631,8 @@ def to_html(ctx: dict, for_pdf: bool = False) -> str:
     return _env.get_template("report.html").render(**ctx, self_ctx=ctx, for_pdf=for_pdf)
 
 
-def sequence_html(ctx: dict, for_pdf: bool = False) -> str:
-    return _env.get_template("sequence_report.html").render(**ctx, for_pdf=for_pdf)
+def project_html(ctx: dict, for_pdf: bool = False) -> str:
+    return _env.get_template("project_report.html").render(**ctx, for_pdf=for_pdf)
 
 
 def to_pdf(html: str) -> bytes:

@@ -294,29 +294,17 @@ def compute(rows: list[dict]) -> dict:
 
 
 def compute_experiment(steps: list[dict], reagents: list[dict], stoich_rows) -> dict:
-    """Run :func:`compute` per step and add the overall yield (product of the step yields).
+    """The reagent table of one experiment: one reaction, whatever its number of one-pot stages.
 
-    Returns ``{"rows": {...all reagent ids...}, "steps": {step_id: {reference_id, limiting_id, reference_mmol,
-    step_yield}}, "overall_yield"}``. A step's yield is that of its first product with a yield.
+    All stages share one reference (equivalents are relative to it) and one limiting reactant; a reactant added in a
+    later stage limits the yield like any other. ``steps`` is kept for the call signature (stages need no separate
+    calculation).
+
+    Returns ``{"rows", "reference_id", "reference_mmol", "limiting_id", "yield"}``; ``yield`` is that of the first
+    product with a yield.
     """
-    out_rows, out_steps = {}, {}
-    overall, complete = 1.0, bool(steps)
-    for s in steps:
-        rows = stoich_rows([r for r in reagents if r.get("step_id") == s["id"]])
-        res = compute(rows)
-        out_rows.update(res["rows"])
-        yields = [res["rows"][r["id"]]["percent_yield"] for r in rows
-                  if r.get("role") == "product" and res["rows"][r["id"]]["percent_yield"] is not None]
-        step_yield = yields[0] if yields else None
-        out_steps[s["id"]] = {k: res[k] for k in ("reference_id", "reference_mmol", "limiting_id")}
-        out_steps[s["id"]]["step_yield"] = step_yield
-        if step_yield is None:
-            complete = False
-        else:
-            overall *= step_yield / 100
-    # Reagents not in any known step (should not happen) still get computed
-    orphans = [r for r in reagents if r["id"] not in out_rows]
-    if orphans:
-        out_rows.update(compute(stoich_rows(orphans))["rows"])
-    return {"rows": out_rows, "steps": out_steps,
-            "overall_yield": overall * 100 if complete and len(steps) > 1 else None}
+    rows = stoich_rows(reagents)
+    res = compute(rows)
+    yields = [res["rows"][r["id"]]["percent_yield"] for r in rows
+              if r.get("role") == "product" and res["rows"][r["id"]]["percent_yield"] is not None]
+    return {**res, "yield": yields[0] if yields else None}

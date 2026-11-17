@@ -13,7 +13,6 @@
   h4 { font-size: 9.5pt; margin: 10px 0 4px; break-after: avoid; }
   h5 { font-size: 9pt; margin: 8px 0 3px; break-after: avoid; }
   .chapter { break-before: auto; }
-  .step-chapter { border-left: 3px solid var(--line); padding-left: 8px; margin: 10px 0 14px; }
   .meta { color: var(--muted); margin-bottom: 8px; }
   .meta span + span::before { content: " · "; }
   table { border-collapse: collapse; width: 100%; margin: 4px 0 6px; font-size: 8pt; }
@@ -51,6 +50,11 @@
   table.proclog .le { margin: 0 0 2px; }
   table.proclog .le .small { white-space: nowrap; }
   .conditions { font-size: 8pt; color: var(--muted); margin: 0 0 4px; }
+  tr.phase-row td, tr.stage-row td { background: #f2f4f7; font-weight: 700; font-size: 8pt; color: var(--accent);
+    text-transform: uppercase; letter-spacing: .04em; padding: 3px 4px; border-right: 0; }
+  tr.stage-row td { text-transform: none; letter-spacing: 0; color: var(--ink); }
+  .route-box { margin: 6px 0 10px; break-inside: avoid; }
+  .route-box svg { width: 100%; height: auto; max-height: 235mm; }
   footer { margin-top: 20px; color: var(--muted); font-size: 7pt; }
   @media print { main { padding: 0; } .noprint { display: none; } }
   .noprint { margin-bottom: 16px; }
