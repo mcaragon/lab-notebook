@@ -1,0 +1,131 @@
+/* Results (yields and write-up), references (rows) and report export. */
+import { $, $$, esc, fmt, preserveFocus } from "./util.js";
+import { state, mutate, expId, multiStep } from "./state.js";
+import { sectionField, bindSections } from "./expfields.js";
+
+export function renderResults(root) {
+  if (root.dataset.drawn) { updateYields(root); return; }
+  root.dataset.drawn = "1";
+  root.innerHTML = `<div class="panel">
+    <div class="row sec-head"><h2>Results</h2></div>
+    <div id="yields"></div>
+    ${sectionField("results", "Results", "Characterization: appearance, mp, TLC, IR/NMR data (Markdown)", 6)}
+    <div class="gap"></div>${sectionField("discussion", "Discussion", "", 6)}
+    <div class="gap"></div>${sectionField("conclusion", "Conclusion", "", 3)}
+  </div>`;
+  bindSections(root);
+  updateYields(root);
+}
+
+function updateYields(root) {
+  const d = state.data;
+  const rows = d.steps.flatMap((s, i) => d.reagents.filter((r) => r.step_id === s.id && r.role === "product").map((r) => ({ r, i })));
+  const box = $("#yields", root);
+  if (!rows.length) {
+    box.innerHTML = `<p class="empty">Add the product under Reagents → Products to calculate yields.</p>`;
+    return;
+  }
+  box.innerHTML = `<div class="yield-cards">${rows.map(({ r, i }) => {
+    const c = r.calc || {};
+    const ref = d.refs.findIndex((x) => x.id === r.expected_ref_id);
+    return `<div class="ycard">
+      <div class="ytitle">${multiStep() ? `<span class="badge">step ${i + 1}</span> ` : ""}<b>${esc(r.name)}</b></div>
+      <dl>
+        <dt>Theoretical</dt><dd>${c.theoretical_mass_g != null ? `${fmt(c.theoretical_mass_g)} g <span class="sub">${fmt(c.theoretical_mmol)} mmol</span>` : "–"}</dd>
+        <dt>Expected</dt><dd>${c.expected_yield_pct != null ? `${c.expected_yield_pct}%${ref >= 0 ? ` [${ref + 1}]` : ""}${c.expected_mass_g != null ? ` <span class="sub">${fmt(c.expected_mass_g)} g</span>` : ""}` : "–"}</dd>
+        <dt>Crude</dt><dd>${c.crude_mass_g != null ? `${fmt(c.crude_mass_g)} g${c.crude_percent != null ? ` <span class="sub">${c.crude_percent.toFixed(0)}%</span>` : ""}` : "–"}</dd>
+        <dt>Isolated</dt><dd>${c.isolated_mass_g != null ? `${fmt(c.isolated_mass_g)} g${c.isolated_mmol != null ? ` <span class="sub">${fmt(c.isolated_mmol)} mmol</span>` : ""}` : "–"}</dd>
+        <dt>Actual yield</dt><dd class="yield">${c.percent_yield != null ? c.percent_yield.toFixed(1) + "%" : "–"}</dd>
+      </dl></div>`;
+  }).join("")}</div>
+  ${d.stoich.overall_yield != null ? `<p class="overall"><b>Overall yield:</b> ${d.stoich.overall_yield.toFixed(1)}% over ${d.steps.length} steps</p>` : ""}
+  <p class="hint">Enter masses in Reagents → Products, or log “Product mass” while working. The theoretical yield uses the actual amounts of the starting materials.</p>`;
+}
+
+// ------------------------------------------------------------------------------------------- references
+const REF_FIELDS = [["authors", "Authors", "Smith, J.; Doe, A."], ["title", "Title", ""], ["source", "Journal / book", "J. Org. Chem."],
+  ["year", "Year", ""], ["volume", "Volume", ""], ["pages", "Pages", ""], ["doi", "DOI", "10.1021/…"], ["url", "URL", ""]];
+const openRefs = new Set();
+
+export function renderRefs(root) {
+  preserveFocus(root, () => {
+    const refs = state.data.refs;
+    root.innerHTML = `<div class="panel">
+      <div class="row sec-head"><h2>References</h2><span class="spacer"></span>
+        <span class="hint">PubChem citations for linked chemicals are added to the report after these.</span></div>
+      <ol class="refs">${refs.map((r, i) => refRow(r, i)).join("")}</ol>
+      <div class="row"><input id="ref-new" class="grow" data-key="ref-new" placeholder="Add a reference: paste a citation or a DOI, or type a source (e.g. Lab manual, exp. 7)">
+        <button class="btn" id="ref-add">Add</button></div>
+    </div>`;
+    bindRefs(root);
+  });
+}
+
+function summary(r) {
+  if (!["authors", "title", "source", "doi", "url"].some((k) => r[k])) return esc(r.text || "(empty)");
+  const src = [r.source && esc(r.source), r.year && `<b>${esc(r.year)}</b>`, r.volume && `<i>${esc(r.volume)}</i>`, r.pages && esc(r.pages)]
+    .filter(Boolean).join(", ");
+  return [r.authors && esc(r.authors), r.title && esc(r.title), src, r.doi ? `DOI: ${esc(r.doi)}` : r.url && esc(r.url), r.text && esc(r.text)]
+    .filter(Boolean).join(". ");
+}
+
+function refRow(r, i) {
+  const open = openRefs.has(r.id);
+  return `<li class="ref" data-ref="${r.id}">
+    <div class="row"><span class="ref-sum grow">${summary(r)}</span>
+      <button class="btn icon" data-ref-edit="${r.id}" title="Edit fields" aria-label="Edit reference ${i + 1}">✎</button>
+      <button class="btn icon" data-ref-move="${r.id}" data-dir="-1" title="Move up" aria-label="Move up">↑</button>
+      <button class="btn icon danger" data-ref-del="${r.id}" title="Delete" aria-label="Delete reference ${i + 1}">✕</button></div>
+    ${open ? `<div class="grid ref-grid">${REF_FIELDS.map(([k, label, ph]) => `<label class="field"><span>${label}</span>
+      <input data-rfield="${k}" data-key="rf-${r.id}-${k}" value="${esc(r[k] || "")}" placeholder="${esc(ph)}"></label>`).join("")}
+      <label class="field wide"><span>Free text / note</span><input data-rfield="text" data-key="rf-${r.id}-text" value="${esc(r.text || "")}"></label></div>` : ""}
+  </li>`;
+}
+
+function bindRefs(root) {
+  const add = async () => {
+    const v = $("#ref-new", root).value.trim();
+    if (!v) return;
+    const doi = v.match(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?(10\.\d{4,9}\/\S+)$/i);
+    await mutate("POST", `/api/experiments/${expId()}/refs`, doi ? { doi: doi[1] } : { text: v });
+    const again = $("#ref-new");
+    if (again) { again.value = ""; again.focus(); }
+  };
+  $("#ref-add", root).onclick = add;
+  $("#ref-new", root).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+  $$("[data-ref-edit]", root).forEach((b) => (b.onclick = () => {
+    const id = Number(b.dataset.refEdit);
+    openRefs.has(id) ? openRefs.delete(id) : openRefs.add(id);
+    renderRefs(root);
+  }));
+  $$("[data-ref-del]", root).forEach((b) => (b.onclick = () => { if (confirm("Delete this reference?")) mutate("DELETE", `/api/refs/${b.dataset.refDel}`); }));
+  $$("[data-ref-move]", root).forEach((b) => (b.onclick = () => {
+    const ids = state.data.refs.map((r) => r.id);
+    const i = ids.indexOf(Number(b.dataset.refMove)), j = i + Number(b.dataset.dir);
+    if (j < 0) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    mutate("PUT", `/api/experiments/${expId()}/refs/order`, ids);
+  }));
+  $$("[data-rfield]", root).forEach((inp) => inp.addEventListener("change", () => {
+    const id = inp.closest("[data-ref]").dataset.ref;
+    mutate("PUT", `/api/refs/${id}`, { [inp.dataset.rfield]: inp.value.trim() || null });
+  }));
+}
+
+// ------------------------------------------------------------------------------------------- report
+export function renderReport(root) {
+  const id = expId();
+  root.innerHTML = `<div class="panel">
+    <div class="row sec-head"><h2>Report</h2><span class="spacer"></span>
+      <a class="btn primary" href="/api/experiments/${id}/report.pdf" target="_blank" rel="noopener">⬇ PDF</a>
+      <a class="btn" href="/api/experiments/${id}/report.md?download=true">⬇ Markdown</a>
+      <a class="btn" href="/api/experiments/${id}/report.html" target="_blank" rel="noopener">Print view</a>
+      <button class="btn" id="rep-preview">Show preview</button></div>
+    <div id="rep-box"></div></div>`;
+  $("#rep-preview", root).onclick = () => {
+    const box = $("#rep-box", root);
+    if (box.firstChild) { box.firstChild.src = box.firstChild.src; return; }
+    box.innerHTML = `<iframe class="preview" title="Report preview" src="/api/experiments/${id}/report.html"></iframe>`;
+    $("#rep-preview", root).textContent = "↻ Refresh preview";
+  };
+}
