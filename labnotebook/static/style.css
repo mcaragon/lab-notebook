@@ -245,12 +245,17 @@ body.running .clock-val { color: var(--clock); }
   body.exp-view .tab-body .panel { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; margin: 0; background: transparent; padding: 14px 18px; }
   body.exp-view .col-side .panel, body.exp-view .col-left .panel { padding: 12px 16px; }
   /* bench: procedure and log are two more panes */
-  body.exp-view .layout-bench .col-main { overflow: hidden; }
   body.exp-view #sec-procedure, body.exp-view #sec-procedure > .panel { height: 100%; }
   body.exp-view #sec-procedure > .panel { display: flex; flex-direction: column; padding: 0; }
   body.exp-view #sec-procedure .sec-head { padding: 10px 18px; margin: 0; border-bottom: 1px solid var(--line); }
   body.exp-view #sec-procedure.collapsed .sec-head > :not(h2) { display: flex; }
-  body.exp-view .pl.wide { flex: 1; min-height: 0; gap: 0; align-items: stretch; }
+  /* The procedure and the log fill the pane's height and each scroll on its own: a long log must not grow the row,
+     or focusing the log input scrolls the whole (scrollbar-less) pane and the procedure heading slides out of reach. */
+  body.exp-view .layout-bench .col-main { overflow: clip; }
+  body.exp-view .pl.wide { flex: 1; min-height: 0; gap: 0; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+  body.exp-view .pl.wide .pl-proc, body.exp-view .pl.wide .pl-log, body.exp-view .pl.wide .log-scroll { min-height: 0; }
+  body.exp-view .col-main, body.exp-view .col-side, body.exp-view .col-left,
+  body.exp-view .pl.wide .pl-proc, body.exp-view .pl.wide .log-scroll { overscroll-behavior: contain; }
   body.exp-view .tab-body .layout-2, body.exp-view .tab-body .layout-bench { gap: 0; }
   body.exp-view .pl.wide .pl-proc { overflow-y: auto; padding: 12px 16px; }
   body.exp-view .pl.wide .pl-log { position: static; max-height: none; height: 100%; padding: 0; gap: 0; background: var(--pane-2); }
