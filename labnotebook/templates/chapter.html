@@ -135,6 +135,6 @@
 <{{ H }}>References</{{ H }}>
 <ol class="refs">
   {%- for r in c.refs %}<li>{{ r.text }}</li>{% endfor %}
-  {%- for r in c.cited %}<li class="small">{{ r.name }}: PubChem CID {{ r.cid }}{% if r.pubchem_url %}, {{ r.pubchem_url }}{% endif %} (physical and safety data via PubChem Local).</li>{% endfor %}
+  {%- for r in c.cited %}<li>{{ r.name }}: PubChem CID {{ r.cid }}{% if r.pubchem_url %}, {{ r.pubchem_url }}{% endif %} (physical and safety data via PubChem Local).</li>{% endfor %}
 </ol>
 {%- endif %}

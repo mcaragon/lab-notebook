@@ -69,6 +69,10 @@ def test_html_report_embeds_images_and_scheme(client):
     assert 'class="scheme' in html and 'class="arrow"' in html
     assert "Test Lab" in html and "freshly distilled" in html
     assert '<span class="mention"><b>Benzaldehyde</b> (1.04 g, 9.80 mmol)</span>' in html
+    # own references and PubChem citations share one style
+    refs = html[html.index('<ol class="refs">'):]
+    refs = refs[:refs.index("</ol>")]
+    assert "<li class" not in refs and refs.count("<li>") == 7
 
 
 def test_report_works_offline(offline_client):
