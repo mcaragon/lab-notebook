@@ -37,10 +37,18 @@ Single user, no login. Intended for your LAN; the layout works on tablets and ph
 | --- | --- |
 | Both containers on Unraid's default `bridge` network (simplest) | `http://<unraid-ip>:55055` (Unraid IP + PubChem Local's **host** port) |
 | Both containers on the same **custom** network, e.g. one made with `docker network create chem` | `http://pubchem-local:8080` (container **name** + **container** port) |
+| PubChem Local's network type set to **Container: lab-notebook** (shares lab-notebook's network, e.g. to reach both through lab-notebook's Tailscale) | `http://localhost:8080` |
 
-Container names like `pubchem-local` only resolve on a custom network, never on the default `bridge` network. Avoid
-setting PubChem Local's network type to *Container: lab-notebook*: that removes PubChem Local's own port mapping, so
-its web UI is no longer reachable on port 55055, and it breaks whenever lab-notebook is restarted or updated.
+Container names like `pubchem-local` only resolve on a custom network, never on the default `bridge` network.
+
+When PubChem Local shares lab-notebook's network (*Container: lab-notebook*):
+
+- Both apps answer on lab-notebook's addresses, including its Tailscale MagicDNS name: the notebook on port 8000 and
+  PubChem Local on port 8080 (on Tailscale, use the container ports).
+- PubChem Local's own port mappings no longer apply. To reach its web UI from the LAN, add a port to
+  **lab-notebook's** template: container port 8080 → host port 55055.
+- When lab-notebook is restarted, updated or edited, restart PubChem Local too. It is attached to the old network
+  until it is restarted, and the notebook then shows "PubChem Local offline".
 
 To check the connection from the Unraid terminal:
 
