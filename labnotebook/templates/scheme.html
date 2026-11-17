@@ -1,0 +1,59 @@
+<style>
+  .scheme { color: #1b1f24; background: #fff; font-size: 9.5pt; line-height: 1.3; }
+  .scheme-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; }
+  .scheme .mols { display: flex; align-items: center; gap: 4px; }
+  .scheme figure { margin: 0; text-align: center; }
+  .scheme figure img { width: 130px; height: 92px; object-fit: contain; display: block; margin: 0 auto; }
+  .scheme figure .noimg { width: 110px; min-height: 60px; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed #b9c0c8; border-radius: 6px; padding: 4px; font-size: 9pt; }
+  .scheme figcaption { font-size: 8.5pt; max-width: 140px; margin: 0 auto; }
+  .scheme figcaption b { font-size: 10pt; }
+  .scheme .yield { color: #1d7a46; font-weight: 600; }
+  .scheme .plus { font-size: 16pt; padding: 0 2px; }
+  .scheme .arrow { display: flex; flex-direction: column; align-items: stretch; min-width: 96px; max-width: 220px;
+    text-align: center; font-size: 8.5pt; padding: 0 2px; }
+  .scheme .arrow .above, .scheme .arrow .below { min-height: 1.3em; }
+  .scheme .arrow .above { padding-bottom: 2px; }
+  .scheme .arrow .below { padding-top: 2px; color: #333; }
+  .scheme .shaft { position: relative; height: 0; border-top: 1.6px solid #1b1f24; margin-right: 7px; }
+  .scheme .shaft::after { content: ""; position: absolute; right: -8px; top: -5.3px; width: 0; height: 0;
+    border-left: 9px solid #1b1f24; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; }
+  .scheme .letter { font-weight: 600; }
+  .scheme .unit { display: flex; align-items: center; gap: 4px 6px; }
+  .scheme.lettered .arrow { min-width: 64px; max-width: 72px; }
+  .scheme .legend { margin: 8px 0 0; padding: 0; list-style: none; font-size: 8.5pt; }
+  .scheme .legend li { margin: 1px 0; }
+</style>
+<div class="scheme{{ ' lettered' if sch.lettered }}">
+  <div class="scheme-row">
+  {%- for seg in sch.segments %}
+    {%- if seg.type == 'arrow' %}<div class="unit">{% endif %}
+    {%- if seg.type == 'mols' %}
+    <div class="mols">
+      {%- for m in seg.mols %}
+      {%- if not loop.first %}<span class="plus">+</span>{% endif %}
+      {%- set src = img_src(m.reagent, 260, 184) %}
+      <figure data-rid="{{ m.reagent.id }}">
+        {%- if src %}<img src="{{ src }}" alt="{{ m.reagent.name }}">{% else %}<div class="noimg">{{ m.reagent.label or m.reagent.name }}</div>{% endif %}
+        <figcaption><b>{{ m.number }}</b>{% if src %} {{ m.reagent.label or m.reagent.name }}{% endif %}
+          {%- if m.yield is not none %}<br><span class="yield">{{ '%.0f' % m.yield }}%</span>{% endif %}</figcaption>
+      </figure>
+      {%- endfor %}
+    </div>
+    {%- if not loop.first and sch.segments[loop.index0 - 1].type == 'arrow' %}</div>{% endif %}
+    {%- else %}
+    <div class="arrow" data-step="{{ seg.step_id }}">
+      {%- if sch.lettered %}
+      <div class="above letter">({{ seg.letter }})</div><div class="shaft"></div><div class="below"></div>
+      {%- else %}
+      <div class="above">{{ seg.above | join(', ') }}</div><div class="shaft"></div><div class="below">{{ seg.below | join(', ') }}</div>
+      {%- endif %}
+    </div>
+    {%- if loop.last or sch.segments[loop.index0 + 1].type != 'mols' %}</div>{% endif %}
+    {%- endif %}
+  {%- endfor %}
+  </div>
+  {%- if sch.legend %}
+  <ol class="legend">{% for letter, text in sch.legend %}<li><b>({{ letter }})</b> {{ text or '—' }}</li>{% endfor %}</ol>
+  {%- endif %}
+</div>
