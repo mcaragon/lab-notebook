@@ -13,6 +13,15 @@ class Settings:
     pubchem_timeout: float
     lab_name: str
     author: str
+    # Accounts. COOKIE_SECURE: "auto" (Secure cookies when the request came over HTTPS, e.g. through Cloudflare),
+    # "true" or "false". ADMIN_USERNAME / ADMIN_PASSWORD create the first admin on start if there is no account yet.
+    cookie_secure: str = "auto"
+    session_days: int = 30
+    admin_username: str = ""
+    admin_password: str = ""
+    # Header with the real client address set by a trusted proxy (e.g. CF-Connecting-IP behind Cloudflare Tunnel);
+    # used for sign-in throttling and the activity log. Empty: the address of the connection.
+    client_ip_header: str = ""
 
     @property
     def db_path(self) -> Path:
@@ -26,4 +35,9 @@ def load_settings() -> Settings:
         pubchem_timeout=float(os.environ.get("PUBCHEM_TIMEOUT", "8")),
         lab_name=os.environ.get("LAB_NAME", ""),
         author=os.environ.get("AUTHOR_NAME", ""),
+        cookie_secure=os.environ.get("COOKIE_SECURE", "auto").strip().lower(),
+        session_days=int(os.environ.get("SESSION_DAYS", "30")),
+        admin_username=os.environ.get("ADMIN_USERNAME", "").strip(),
+        admin_password=os.environ.get("ADMIN_PASSWORD", ""),
+        client_ip_header=os.environ.get("CLIENT_IP_HEADER", "").strip(),
     )

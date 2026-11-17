@@ -98,7 +98,11 @@ def test_project_crud_and_reports(client):
     d = client.post("/api/projects", json={"title": "Round trip", "notes": "Two days",
                                            "experiment_ids": [e1, e2]}).json()
     pid = d["project"]["id"]
-    assert [r["overall_yield"] for r in d["summary"]] == [None, pytest.approx(60.0, abs=0.1)]
+    # the first experiment's overall yield is its own; its starting material is listed and drawn on the map
+    assert [r["overall_yield"] for r in d["summary"]] == [pytest.approx(80.0, abs=0.1), pytest.approx(60.0, abs=0.1)]
+    assert [(f["id"], f["title"]) for f in d["summary"][0]["from"]] == [(None, "Benzaldehyde")]
+    assert d["summary"][1]["from"][0]["id"] == e1
+    assert "Starting material" in d["map_svg"] and d["map_svg"].count('class="rm-node rm-start"') == 1
     md = client.get(f"/api/projects/{pid}/report.md").text
     assert md.startswith("# Round trip") and "## Route" in md and "## Experiments" in md
     assert "## 1. Reduction" in md and "## 2. Oxidation" in md and "### Reagents" in md

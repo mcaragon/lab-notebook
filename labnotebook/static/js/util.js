@@ -70,7 +70,8 @@ export function toast(msg, error = false) {
 }
 
 export async function api(method, path, body) {
-  const opts = { method, headers: {} };
+  // The header marks requests from this app; the server refuses changes without it (cross-site requests cannot set it)
+  const opts = { method, headers: { "X-Requested-With": "lab-notebook" }, credentials: "same-origin" };
   if (body !== undefined) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
@@ -79,6 +80,9 @@ export async function api(method, path, body) {
   if (res.status === 204) return null;
   let data = null;
   try { data = await res.json(); } catch { /* not JSON */ }
+  if (res.status === 401 && !path.startsWith("/api/auth/")) {
+    window.dispatchEvent(new Event("auth-required"));  // the session ended: back to the sign-in page
+  }
   if (!res.ok) {
     let msg = data?.detail ?? `HTTP ${res.status}`;
     if (Array.isArray(msg)) msg = msg.map((d) => d.msg).join("; ");

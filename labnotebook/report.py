@@ -5,6 +5,7 @@ Also renders the reaction scheme fragment that the app shows at the top of an ex
 from __future__ import annotations
 
 import base64
+import html
 import math
 import re
 from datetime import datetime
@@ -161,7 +162,23 @@ def format_ref(r: dict) -> str:
 # ------------------------------------------------------------------------------------------- templates
 _env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=select_autoescape(["html"]))
 _env.filters.update(fmt=fmt, fmt_fixed=fmt_fixed, temp=actions.fmt_temp)
-_env.filters["md"] = lambda text: md.markdown(text or "", extensions=["extra", "sane_lists", "nl2br"])
+# User text is Markdown; raw HTML in it is shown as text, never rendered (reports are served from the app's origin)
+_SAFE_URL = re.compile(r"^(https?:|mailto:|#|/(?!/)|[^:/?#]*$)", re.I)
+
+
+def _url_ok(m: re.Match) -> str:
+    url = re.sub(r"[\x00-\x20]", "", html.unescape(m.group(2)))
+    return m.group(0) if _SAFE_URL.match(url) else f'{m.group(1)}="#"'
+
+
+def safe_markdown(text: str) -> str:
+    """Markdown to HTML without raw HTML and without script links (javascript:, data:, ...)."""
+    out = md.markdown(html.escape(text or "", quote=False).replace("&gt;", ">"),
+                      extensions=["extra", "sane_lists", "nl2br"])
+    return re.sub(r'\b(href|src)="([^"]*)"', _url_ok, out, flags=re.I)
+
+
+_env.filters["md"] = safe_markdown
 
 
 def nfpa_svg(n: Optional[dict], size_mm: float = 7) -> str:
@@ -418,8 +435,7 @@ def build_project_context(proj: dict, bundles: list[dict], calcs: list[dict], g:
         "map_svg": projects.route_svg(g, img, numbers, link=False, only=set(ids), inline_css=True)
         if len(ids) > 1 else "",
         "scheme": sch, "scheme_html": _scheme_html(sch, img) if sch and not sch["empty"] else "",
-        "overall_yield": node[leaf]["overall_yield"] if leaf is not None else
-        (node[chain[-1]]["overall_yield"] if chain else None),
+        "overall_yield": node[chain[-1]]["overall_yield"] if len(chain) > 1 else None,
         "lls": len(chain), "lab_name": getattr(settings, "lab_name", "") if settings else "",
         "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M"), "ghs": images[1], "ghs_names": GHS_NAMES,
     }
@@ -604,7 +620,7 @@ def _route_table(summary: list[dict]) -> list[str]:
         body.append([r["n"], r["title"], frm, prod, f"{fmt(r['isolated_g'])} g" if r["isolated_g"] is not None else "",
                      f"{r['yield']:.1f}%" if r["yield"] is not None else "",
                      f"{fmt(r['remaining_g'])} g" if r["remaining_g"] is not None else "",
-                     f"{r['overall_yield']:.1f}% ({r['lls']} steps)" if r["overall_yield"] is not None else ""])
+                     f"{r['overall_yield']:.1f}% ({r['lls']} step{'s' if r['lls'] != 1 else ''})" if r["overall_yield"] is not None else ""])
     return _table(["#", "Experiment", "From", "Product", "Isolated", "Yield", "Left", "Overall"],
                   ["r", "l", "l", "l", "r", "r", "r", "r"], body)
 

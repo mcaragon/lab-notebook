@@ -86,7 +86,7 @@ async function draw(app) {
           <td class="num">${g(r.isolated_g)}</td>
           <td class="num yield">${r.yield != null ? r.yield.toFixed(1) + "%" : "–"}</td>
           <td class="num ${r.remaining_g != null && r.remaining_g < 0 ? "neg" : ""}">${r.remaining_g != null ? g(r.remaining_g) : r.isolated_g != null ? g(r.isolated_g) : "–"}</td>
-          <td class="num">${r.overall_yield != null ? `${r.overall_yield.toFixed(1)}%<div class="sub">${r.lls} steps</div>` : "–"}</td>
+          <td class="num">${r.overall_yield != null ? `${r.overall_yield.toFixed(1)}%<div class="sub">${r.lls} step${r.lls === 1 ? "" : "s"}</div>` : "–"}</td>
           <td class="actions">${r.product_id ? `<button class="btn small" data-branch="${r.product_id}" title="New experiment from a portion of ${esc(r.product)}">⑂ Branch</button>` : ""}
             <button class="btn icon danger" data-remove="${r.id}" title="Remove from the project (the experiment is kept)" aria-label="Remove">✕</button></td>
         </tr>`).join("")}</tbody></table></div>

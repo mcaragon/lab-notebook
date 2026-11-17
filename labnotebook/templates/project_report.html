@@ -33,7 +33,7 @@
     <td class="num">{% if r.isolated_g is not none %}{{ r.isolated_g | fmt }} g{% endif %}</td>
     <td class="num">{% if r['yield'] is not none %}<strong>{{ '%.1f' % r['yield'] }}%</strong>{% endif %}</td>
     <td class="num">{% if r.remaining_g is not none %}{{ r.remaining_g | fmt }} g{% endif %}</td>
-    <td class="num">{% if r.overall_yield is not none %}{{ '%.1f' % r.overall_yield }}%<br><span class="small">{{ r.lls }} steps</span>{% endif %}</td></tr>
+    <td class="num">{% if r.overall_yield is not none %}{{ '%.1f' % r.overall_yield }}%<br><span class="small">{{ r.lls }} step{{ 's' if r.lls != 1 }}</span>{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>

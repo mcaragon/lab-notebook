@@ -1,5 +1,6 @@
 /* Lab Notebook frontend: vanilla JS modules, no build step.
-   Routes: #/ (dashboard), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/project/<id>. */
+   Routes: #/ (dashboard), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/project/<id>, #/admin,
+   #/invite/<token> (sign up). Everything needs a signed-in account; each account sees only its own notebook. */
 import { $, $$, api, esc, toast } from "./util.js";
 import { state, setData, expId, addRenderer, refresh, sigOf } from "./state.js";
 import { flushExp, saveExp, sectionField, bindSections, hasPendingExp } from "./expfields.js";
@@ -12,6 +13,8 @@ import { renderProject } from "./project.js";
 import { initSidebar, refreshSidebar, patchSidebar, markActive } from "./sidebar.js";
 import { renderGlance, renderHazards, renderRoute } from "./widgets.js";
 import { initTheme } from "./theme.js";
+import { renderLogin, renderSetup, renderInvite } from "./login.js";
+import { renderAdmin } from "./admin.js";
 import { initResizers, resizer } from "./resize.js";
 
 const app = $("#app");
@@ -69,6 +72,7 @@ async function route() {
     state.renderers = [];
     document.body.classList.remove("running");
     if ((parts[0] === "project" || parts[0] === "seq") && parts[1]) renderProject(app, Number(parts[1]));
+    else if (parts[0] === "admin") renderAdmin(app);
     else renderHome();
   }
 }
@@ -254,13 +258,30 @@ document.addEventListener("click", (e) => {
 
 // ------------------------------------------------------------------------------------------- boot
 (async function boot() {
+  initTheme();
+  let auth;
   try {
-    state.config = await api("GET", "/api/config");
+    auth = await api("GET", "/api/auth/state");
   } catch (e) {
     app.innerHTML = `<div class="panel">Could not reach the Lab Notebook server: ${esc(e.message)}</div>`;
     return;
   }
-  initTheme();
+  const invite = location.hash.match(/^#\/invite\/([\w-]+)/);
+  if (auth.setup_needed) { renderSetup(); return; }
+  if (!auth.user) { if (invite) renderInvite(invite[1]); else renderLogin(); return; }
+  if (invite) history.replaceState(null, "", "#/");
+  state.user = auth.user;
+  window.addEventListener("auth-required", () => {
+    if (document.body.classList.contains("auth-view")) return;
+    state.data = null;
+    renderLogin("Your session ended. Please sign in again.");
+  });
+  try {
+    state.config = await api("GET", "/api/config");
+  } catch (e) {
+    app.innerHTML = `<div class="panel">Could not load the configuration: ${esc(e.message)}</div>`;
+    return;
+  }
   initSidebar();
   initResizers();
   checkHealth();

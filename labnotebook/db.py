@@ -8,7 +8,10 @@ A *project* groups experiments into a route. Experiments are linked by material:
 ``source_reagent_id`` is the product of another experiment is a portion of that product. Links make the route a
 graph, so routes can branch (one product used in several experiments) and converge.
 
-Schema version 3; older databases are migrated on open (v2 multi-step experiments are split into one experiment per
+Accounts (schema version 4): every experiment and project has an owner (``owner_id``); users only see their own.
+Users, sessions, invites and sign-in attempts are stored here too (see ``auth.py``).
+
+Schema version 4; older databases are migrated on open (v2 multi-step experiments are split into one experiment per
 step, linked through their intermediates and grouped into a project).
 """
 from __future__ import annotations
@@ -21,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Free-text sections of an experiment (key, heading)
 SECTIONS = [
@@ -47,7 +50,7 @@ JSON_FIELDS = {"pictograms": list, "hazard_statements": list, "sources": dict, "
 # Writable columns per table
 FIELDS = {
     "experiments": ["title", "date", "author", "course", "status", "scheme_style", "started_at", "ended_at",
-                    "phases", *SECTION_KEYS],
+                    "phases", "owner_id", *SECTION_KEYS],
     "steps": ["title", "notes", "atmosphere", "position"],
     "conditions": ["step_id", "temperature", "duration", "note", "position"],
     "reagents": ["step_id", "position", "cid", "pubchem_url", *CHEM_FIELDS, "pictograms", "hazard_statements",
@@ -61,7 +64,7 @@ FIELDS = {
     "timers": ["label", "kind", "started_at", "duration_s", "stopped_at", "elapsed_s", "start_entry_id",
                "stop_entry_id", "procedure_id", "reagent_id"],
     "refs": ["position", "authors", "title", "source", "year", "volume", "pages", "doi", "url", "text"],
-    "projects": ["title", "notes", "scheme_style"],
+    "projects": ["title", "notes", "scheme_style", "owner_id"],
     "project_items": ["position"],
 }
 BOOL_FIELDS = {"is_reference", "custom_text"}
@@ -171,8 +174,58 @@ ALTER TABLE procedure ADD COLUMN phase TEXT NOT NULL DEFAULT 'reaction';
 ALTER TABLE experiments ADD COLUMN phases TEXT;
 """
 
+_V4 = """
+CREATE INDEX IF NOT EXISTS experiments_owner ON experiments(owner_id);
+CREATE INDEX IF NOT EXISTS projects_owner ON projects(owner_id);
+"""
+
 # Created on every start if missing
 _ALWAYS = """
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    display_name TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    active INTEGER NOT NULL DEFAULT 1,
+    demo INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
+    max_experiments INTEGER,
+    created_at TEXT NOT NULL,
+    last_login_at TEXT,
+    last_seen_at TEXT
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    last_seen_at TEXT,
+    ip TEXT, user_agent TEXT
+);
+CREATE TABLE IF NOT EXISTS invites (
+    id INTEGER PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    note TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    demo INTEGER NOT NULL DEFAULT 1,
+    max_experiments INTEGER,
+    account_days INTEGER,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    used_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id INTEGER PRIMARY KEY,
+    ts TEXT NOT NULL,
+    username TEXT,
+    ip TEXT,
+    ok INTEGER NOT NULL,
+    reason TEXT
+);
+CREATE INDEX IF NOT EXISTS login_attempts_ts ON login_attempts(ts);
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '', notes TEXT, scheme_style TEXT NOT NULL DEFAULT 'auto',
@@ -411,6 +464,11 @@ class Store:
             c.executescript(_ALWAYS)
             if version < 3 and not fresh:
                 _migrate_v3(c)
+            if version < 4:  # existing data gets its owner when the first admin is created
+                for table in ("experiments", "projects"):
+                    if "owner_id" not in [r[1] for r in c.execute(f"PRAGMA table_info({table})")]:
+                        c.execute(f"ALTER TABLE {table} ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE")
+                c.executescript(_V4)
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod
@@ -523,14 +581,32 @@ class Store:
             c.execute("UPDATE experiments SET updated_at = ? WHERE id = ?", (now(), exp_id))
 
     # ------------------------------------------------------------------ experiments
-    def list_experiments(self) -> list[dict]:
+    def owner_of(self, table: str, rid: int) -> Optional[int]:
+        """Owner of an experiment, a project or a row that belongs to an experiment (None if there is none)."""
+        with self.conn() as c:
+            if table == "projects":
+                row = c.execute("SELECT owner_id FROM projects WHERE id = ?", (rid,)).fetchone()
+                return row[0] if row else None
+        exp_id = rid if table == "experiments" else self.experiment_of(table, rid)
+        if exp_id is None:
+            return None
+        with self.conn() as c:
+            row = c.execute("SELECT owner_id FROM experiments WHERE id = ?", (exp_id,)).fetchone()
+        return row[0] if row else None
+
+    def count_experiments(self, owner: Optional[int]) -> int:
+        with self.conn() as c:
+            return c.execute("SELECT COUNT(*) FROM experiments WHERE owner_id IS ?", (owner,)).fetchone()[0]
+
+    def list_experiments(self, owner: Optional[int] = None) -> list[dict]:
         with self.conn() as c:
             rows = c.execute(
                 "SELECT e.id, e.title, e.date, e.status, e.course, e.updated_at, "
                 "(SELECT COUNT(*) FROM reagents r WHERE r.experiment_id = e.id) AS n_reagents, "
                 "(SELECT COALESCE(r.label, r.name) FROM reagents r WHERE r.experiment_id = e.id AND r.role = 'product' "
                 "ORDER BY r.position, r.id LIMIT 1) AS product "
-                "FROM experiments e ORDER BY COALESCE(e.date, '') DESC, e.id DESC").fetchall()
+                "FROM experiments e WHERE e.owner_id IS ? ORDER BY COALESCE(e.date, '') DESC, e.id DESC",
+                (owner,)).fetchall()
         return [dict(r) for r in rows]
 
     def create_experiment(self, data: dict) -> int:
@@ -625,7 +701,8 @@ class Store:
                         experiment_id=new_id)
         return new_id
 
-    def products(self, q: str = "", exclude_exp: Optional[int] = None, limit: int = 12) -> list[dict]:
+    def products(self, q: str = "", exclude_exp: Optional[int] = None, limit: int = 12,
+                 owner: Optional[int] = None) -> list[dict]:
         """Products of experiments (newest first) whose name, label, formula or CAS contains ``q``."""
         like = f"%{q.strip().lower()}%"
         with self.conn() as c:
@@ -633,10 +710,11 @@ class Store:
                 "SELECT r.id, r.name, r.label, r.formula, r.cas, r.cid, r.actual_mass_g, r.crude_mass_g, "
                 "e.id AS experiment_id, e.title AS experiment, e.date FROM reagents r "
                 "JOIN experiments e ON e.id = r.experiment_id WHERE r.role = 'product' AND e.id IS NOT ? "
+                "AND e.owner_id IS ? "
                 "AND (LOWER(COALESCE(r.name, '')) LIKE ? OR LOWER(COALESCE(r.label, '')) LIKE ? "
                 "OR LOWER(COALESCE(r.formula, '')) LIKE ? OR COALESCE(r.cas, '') LIKE ?) "
                 "ORDER BY COALESCE(e.date, '') DESC, e.id DESC LIMIT ?",
-                (exclude_exp, like, like, like, like, limit)).fetchall()
+                (exclude_exp, owner, like, like, like, like, limit)).fetchall()
         return [dict(r) for r in rows]
 
     def uses_of(self, product_ids: Iterable[int]) -> list[dict]:
@@ -683,9 +761,10 @@ def stoich_rows(reagents: list[dict]) -> list[dict]:
 def _project_methods():
     """Project storage (attached to Store below to keep the class readable)."""
 
-    def list_projects(self) -> list[dict]:
+    def list_projects(self, owner: Optional[int] = None) -> list[dict]:
         with self.conn() as c:
-            projs = [dict(r) for r in c.execute("SELECT * FROM projects ORDER BY updated_at DESC, id DESC")]
+            projs = [dict(r) for r in c.execute("SELECT * FROM projects WHERE owner_id IS ? "
+                                                "ORDER BY updated_at DESC, id DESC", (owner,))]
             for q in projs:
                 q["experiments"] = [dict(r) for r in c.execute(
                     "SELECT e.id, e.title, e.date, e.status FROM project_items i JOIN experiments e "

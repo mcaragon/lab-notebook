@@ -3,6 +3,8 @@
 import { $, $$, api, esc, toast } from "./util.js";
 import { resizer } from "./resize.js";
 import { themeSwitch, bindThemeSwitch } from "./theme.js";
+import { state } from "./state.js";
+import { changePassword, signOut } from "./login.js";
 
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
 let cache = { experiments: [], projects: [] };
@@ -71,6 +73,14 @@ function draw() {
         || `<li class="sb-empty">${q ? "No matches" : "None yet"}</li>`)}
     </nav>
     <div class="sb-foot"><span id="pubchem-status" class="pill">PubChem Local …</span><span class="spacer"></span>${themeSwitch()}</div>
+    ${state.user ? `<details class="sb-user"><summary><span class="avatar" aria-hidden="true">${esc((state.user.display_name || state.user.username).slice(0, 1).toUpperCase())}</span>
+      <span class="sb-title">${esc(state.user.display_name || state.user.username)}</span>
+      ${state.user.is_admin ? '<span class="tag role-admin">admin</span>' : state.user.demo ? '<span class="tag t-warn">demo</span>' : ""}</summary>
+      <div class="menu-list">
+        ${state.user.is_admin ? '<a href="#/admin" data-href="#/admin">⚙ Admin dashboard</a>' : ""}
+        <button id="sb-password">Change password…</button>
+        <button id="sb-signout">Sign out</button>
+      </div></details>` : ""}
     ${resizer("--side", "parent", 200, 480, "Resize the sidebar")}`;
   markActive();
   const s = $("#sb-search", root);
@@ -84,6 +94,13 @@ function draw() {
   }));
   $("#sb-hide", root).onclick = () => setHidden(true);
   bindThemeSwitch(root);
+  const pw = $("#sb-password", root);
+  if (pw) pw.onclick = async () => {
+    try { await changePassword(); toast("Password changed. Other devices were signed out."); }
+    catch (e) { toast(e.message, true); }
+  };
+  const so = $("#sb-signout", root);
+  if (so) so.onclick = () => signOut();
   $("#sb-new-exp", root).onclick = async () => {
     try {
       const d = await api("POST", "/api/experiments", { title: "New experiment" });
