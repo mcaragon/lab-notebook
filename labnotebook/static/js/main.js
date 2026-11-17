@@ -11,6 +11,7 @@ import { renderResults, renderRefs, renderReport } from "./results.js";
 import { renderSequence } from "./sequence.js";
 import { initSidebar, refreshSidebar, patchSidebar, markActive } from "./sidebar.js";
 import { renderGlance, renderHazards } from "./widgets.js";
+import { initResizers, resizer } from "./resize.js";
 
 const app = $("#app");
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
@@ -135,14 +136,17 @@ function renderShell(tab) {
     <div id="bench" class="bench"></div>
     <div class="tab-body" data-tab="plan"><div class="layout-2">
       <div class="col-main"><section id="sec-reaction"></section><section id="sec-reagents"></section></div>
+      ${resizer("--rail", "next", 260, 720, "Resize the side panel")}
       <div class="col-side"><section id="sec-glance"></section><section id="sec-hazards"></section><section id="sec-overview"></section></div>
     </div></div>
     <div class="tab-body" data-tab="bench"><div class="layout-bench">
       <div class="col-left"><section id="sec-checklist"></section></div>
+      ${resizer("--bench-left", "prev", 220, 640, "Resize the reagent checklist")}
       <div class="col-main"><section id="sec-procedure"></section></div>
     </div></div>
     <div class="tab-body" data-tab="results"><div class="layout-2">
       <div class="col-main"><section id="sec-results"></section></div>
+      ${resizer("--rail", "next", 260, 720, "Resize the side panel")}
       <div class="col-side"><section id="sec-refs"></section></div>
     </div></div>
     <div class="tab-body" data-tab="report"><section id="sec-report"></section></div>`;
@@ -281,6 +285,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   initSidebar();
+  initResizers();
   checkHealth();
   setInterval(checkHealth, 60000);
   startTicker();

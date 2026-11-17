@@ -1,6 +1,7 @@
 /* Sidebar: experiments and sequences for quick switching, search, quick create and the PubChem Local status.
    Groups collapse; the whole sidebar can be hidden (remembered per browser). */
 import { $, $$, api, esc, toast } from "./util.js";
+import { resizer } from "./resize.js";
 
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
 let cache = { experiments: [], sequences: [] };
@@ -68,7 +69,8 @@ function draw() {
         <i class="route">⇢</i><span class="sb-title">${esc(s.title)}</span><span class="sb-meta">${s.experiments.length}</span></a></li>`).join("")
         || `<li class="sb-empty">${q ? "No matches" : "None yet"}</li>`)}
     </nav>
-    <div class="sb-foot"><span id="pubchem-status" class="pill">PubChem Local …</span></div>`;
+    <div class="sb-foot"><span id="pubchem-status" class="pill">PubChem Local …</span></div>
+    ${resizer("--side", "parent", 200, 480, "Resize the sidebar")}`;
   markActive();
   const s = $("#sb-search", root);
   s.addEventListener("input", () => { filter = s.value; draw(); });

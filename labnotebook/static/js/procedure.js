@@ -4,6 +4,7 @@
    newest, like the procedure, with the composer underneath. */
 import { $, $$, esc, fmt, fmtDur, clockTime, isoWithOffset, localDateTimeValue, parseDuration, parseNum, preserveFocus, toast } from "./util.js";
 import { state, mutate, expId, multiStep, labelOf, reagentById } from "./state.js";
+import { resizer } from "./resize.js";
 
 const wide = window.matchMedia("(min-width: 1000px)");
 wide.addEventListener("change", () => state.data && state.tab === "bench" && renderProcedure($("#sec-procedure")));
@@ -141,6 +142,7 @@ function draw(root) {
           <button class="btn" id="proc-add-btn">Add step</button></div>
         ${!isWide ? orphanLog() : ""}
       </div>
+      ${isWide ? resizer("--log-w", "next", 280, 900, "Resize the log") : ""}
       ${isWide ? `<div class="pl-log"><div class="log-scroll"><ol class="log-list">${d.entries.map(entryRow).join("") || '<li class="empty">No entries yet. Everything you log is timestamped.</li>'}</ol></div>
         ${composerHtml()}</div>` : ""}
     </div>
