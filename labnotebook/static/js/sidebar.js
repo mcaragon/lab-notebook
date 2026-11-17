@@ -1,10 +1,11 @@
-/* Sidebar: experiments and sequences for quick switching, search, quick create and the PubChem Local status.
+/* Sidebar: experiments and projects for quick switching, search, quick create and the PubChem Local status.
    Groups collapse; the whole sidebar can be hidden (remembered per browser). */
 import { $, $$, api, esc, toast } from "./util.js";
 import { resizer } from "./resize.js";
+import { themeSwitch, bindThemeSwitch } from "./theme.js";
 
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
-let cache = { experiments: [], sequences: [] };
+let cache = { experiments: [], projects: [] };
 let filter = "";
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
@@ -14,8 +15,8 @@ const closedGroups = new Set(store.get("ln.sb.closed", []));
 
 export async function refreshSidebar() {
   try {
-    const [{ experiments }, { sequences }] = await Promise.all([api("GET", "/api/experiments"), api("GET", "/api/sequences")]);
-    cache = { experiments, sequences };
+    const [{ experiments }, { projects }] = await Promise.all([api("GET", "/api/experiments"), api("GET", "/api/projects")]);
+    cache = { experiments, projects };
   } catch { /* keep the old list */ }
   draw();
 }
@@ -45,7 +46,7 @@ function draw() {
   const root = $("#sidebar");
   const q = filter.trim().toLowerCase();
   const exps = cache.experiments.filter((e) => !q || `${e.title} ${e.course || ""}`.toLowerCase().includes(q));
-  const seqs = cache.sequences.filter((s) => !q || s.title.toLowerCase().includes(q));
+  const seqs = cache.projects.filter((s) => !q || s.title.toLowerCase().includes(q));
   const running = exps.filter((e) => e.status === "in_progress");
   const focused = document.activeElement?.id === "sb-search";
   const expItem = (e) => `<li><a href="#/exp/${e.id}/${e.status === "in_progress" ? "bench" : "plan"}" data-href="#/exp/${e.id}/" class="sb-item">
@@ -58,18 +59,18 @@ function draw() {
     </div>
     <div class="sb-nav">
       <button class="sb-item" id="sb-new-exp"><span class="ico">＋</span><span class="sb-title">New experiment</span></button>
-      <button class="sb-item" id="sb-new-seq"><span class="ico">⇢</span><span class="sb-title">New sequence</span></button>
+      <button class="sb-item" id="sb-new-seq"><span class="ico">⇢</span><span class="sb-title">New project</span></button>
       <a class="sb-item" href="#/" data-href="#/"><span class="ico">▦</span><span class="sb-title">Dashboard</span></a>
-      <label class="sb-item sb-searchrow"><span class="ico">⌕</span><input id="sb-search" placeholder="Search" value="${esc(filter)}" aria-label="Search experiments and sequences"></label>
+      <label class="sb-item sb-searchrow"><span class="ico">⌕</span><input id="sb-search" placeholder="Search" value="${esc(filter)}" aria-label="Search experiments and projects"></label>
     </div>
     <nav class="sb-scroll">
       ${running.length ? group("running", "Running", running.length, running.map(expItem).join("")) : ""}
       ${group("exps", "Experiments", exps.length, exps.map(expItem).join("") || `<li class="sb-empty">${q ? "No matches" : "None yet"}</li>`)}
-      ${group("seqs", "Sequences", seqs.length, seqs.map((s) => `<li><a href="#/seq/${s.id}" data-href="#/seq/${s.id}" class="sb-item">
+      ${group("seqs", "Projects", seqs.length, seqs.map((s) => `<li><a href="#/project/${s.id}" data-href="#/project/${s.id}" class="sb-item">
         <i class="route">⇢</i><span class="sb-title">${esc(s.title)}</span><span class="sb-meta">${s.experiments.length}</span></a></li>`).join("")
         || `<li class="sb-empty">${q ? "No matches" : "None yet"}</li>`)}
     </nav>
-    <div class="sb-foot"><span id="pubchem-status" class="pill">PubChem Local …</span></div>
+    <div class="sb-foot"><span id="pubchem-status" class="pill">PubChem Local …</span><span class="spacer"></span>${themeSwitch()}</div>
     ${resizer("--side", "parent", 200, 480, "Resize the sidebar")}`;
   markActive();
   const s = $("#sb-search", root);
@@ -82,6 +83,7 @@ function draw() {
     draw();
   }));
   $("#sb-hide", root).onclick = () => setHidden(true);
+  bindThemeSwitch(root);
   $("#sb-new-exp", root).onclick = async () => {
     try {
       const d = await api("POST", "/api/experiments", { title: "New experiment" });
@@ -91,9 +93,9 @@ function draw() {
   };
   $("#sb-new-seq", root).onclick = async () => {
     try {
-      const d = await api("POST", "/api/sequences", { title: "New sequence" });
+      const d = await api("POST", "/api/projects", { title: "New project" });
       await refreshSidebar();
-      location.hash = `#/seq/${d.sequence.id}`;
+      location.hash = `#/project/${d.project.id}`;
     } catch (e) { toast(e.message, true); }
   };
   root.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => document.body.classList.remove("sb-open")));

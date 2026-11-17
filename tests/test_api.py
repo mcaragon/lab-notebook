@@ -110,23 +110,55 @@ def test_unknown_and_offline_reagents_allow_manual_entry(client, offline_client)
     assert offline_client.get(f"/api/reagents/{d['reagent_id']}/structure.svg").status_code == 404
 
 
-def test_steps_carry_product_and_conditions(client):
+def test_one_pot_stages_and_conditions(client):
     exp_id, s1 = new_exp(client)
     add(client, exp_id, query="benzaldehyde", step_id=s1, basis="mmol", basis_value=10)
-    prod = add(client, exp_id, query="benzyl alcohol", role="product", step_id=s1)["reagent_id"]
-    client.put(f"/api/reagents/{prod}", json={"actual_mass_g": 0.9})
     client.post(f"/api/steps/{s1}/conditions", json={"temperature": "0", "duration": "15 min"})
     d = client.post(f"/api/steps/{s1}/conditions", json={"temperature": "rt", "duration": "2 h"}).json()
     assert [k["temperature"] for k in d["steps"][0]["conditions"]] == ["0", "rt"]
-    d = client.post(f"/api/experiments/{exp_id}/steps", json={"title": "Oxidation"}).json()
+    # a second stage of the same reaction: nothing is carried over, equivalents use the one reference
+    d = client.post(f"/api/experiments/{exp_id}/steps", json={}).json()
     s2 = d["step_id"]
-    carried = [r for r in d["reagents"] if r["step_id"] == s2]
-    assert len(carried) == 1 and carried[0]["source_reagent_id"] == prod
-    assert carried[0]["basis_value"] == 0.9 and carried[0]["is_reference"]
-    # deleting a step removes its reagents; the last step cannot be deleted
+    assert len(d["steps"]) == 2 and not [r for r in d["reagents"] if r["step_id"] == s2]
+    d = add(client, exp_id, query="sodium borohydride", role="reagent", step_id=s2, basis="equiv", basis_value=0.5)
+    nabh4 = rows(d)[d["reagent_id"]]
+    assert nabh4["step_id"] == s2 and nabh4["calc"]["mmol"] == pytest.approx(5.0)
+    assert d["stoich"]["reference_id"] == d["reagents"][0]["id"]
+    assert 'class="arrow stacked"' in d["scheme_html"] and "1. " in d["scheme_html"] and "2. Sodium borohydride (0.50 equiv)" in d["scheme_html"]
+    # deleting a stage removes its reagents; the last stage cannot be deleted
     d = client.delete(f"/api/steps/{s2}").json()
     assert len(d["steps"]) == 1 and all(r["step_id"] == s1 for r in d["reagents"])
     assert client.delete(f"/api/steps/{s1}").status_code == 400
+
+
+def test_procedure_phases(client):
+    exp_id, _ = new_exp(client)
+    d = client.get(f"/api/experiments/{exp_id}").json()
+    assert [p["key"] for p in d["phases"]] == ["setup", "reaction", "workup", "purification", "analysis"]
+    post = lambda **b: client.post(f"/api/experiments/{exp_id}/procedure", json=b).json()  # noqa: E731
+    post(text="Extract with DCM.", phase="workup")
+    post(text="Add NaBH4.")                              # default: reaction
+    d = post(text="Flame-dry a flask.", phase="setup")
+    assert [p["text"] for p in d["procedure"]] == ["Flame-dry a flask.", "Add NaBH4.", "Extract with DCM."]
+    workup = d["procedure"][2]["id"]
+    d = client.put(f"/api/procedure/{workup}", json={"done": True}).json()
+    assert d["entries"][-1]["text"] == "Procedure step 3 completed"  # numbered in reading order
+    assert client.put(f"/api/procedure/{workup}", json={"phase": "nope"}).status_code == 422
+    # own phases: added, placed, renamed and removed; the standard phases keep their order
+    phases = [{"key": p["key"]} for p in d["phases"]]
+    phases.insert(4, {"key": "recryst", "label": "Recrystallization"})
+    d = client.put(f"/api/experiments/{exp_id}", json={"phases": phases}).json()
+    assert [p["label"] for p in d["phases"]][3:5] == ["Purification", "Recrystallization"]
+    assert d["phases"][4]["custom"] is True
+    d = post(text="Recrystallize from EtOH.", phase="recryst")
+    assert d["procedure"][-1]["phase"] == "recryst"
+    bad = [{"key": "workup"}, {"key": "reaction"}]
+    assert client.put(f"/api/experiments/{exp_id}", json={"phases": bad}).status_code == 422
+    d = client.put(f"/api/experiments/{exp_id}", json={"phases": [p for p in phases if p["key"] != "recryst"]}).json()
+    assert "recryst" not in [p["key"] for p in d["phases"]]
+    assert next(p for p in d["procedure"] if p["text"].startswith("Recrystallize"))["phase"] == "reaction"
+    md = client.get(f"/api/experiments/{exp_id}/report.md").text
+    assert "### Setup" in md and "### Workup" in md and "### Analysis" not in md  # empty phases are left out
 
 
 def test_procedure_mentions_done_and_order(client):
@@ -144,7 +176,7 @@ def test_procedure_mentions_done_and_order(client):
     assert [e["text"] for e in d["entries"]] == ["Procedure step 1 completed"]
     d = client.put(f"/api/procedure/{p1['id']}", json={"done": False}).json()
     assert d["entries"] == [] and d["procedure"][0]["done_at"] is None
-    d = client.put(f"/api/experiments/{exp_id}/procedure/order", json=[p2["id"], p1["id"]]).json()
+    d = client.put(f"/api/experiments/{exp_id}/procedure/order", json=[p2["id"], p1["id"]]).json()  # same phase
     assert [p["id"] for p in d["procedure"]] == [p2["id"], p1["id"]]
     assert ald
 

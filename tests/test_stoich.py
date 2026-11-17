@@ -156,17 +156,19 @@ def test_expected_and_crude_yield():
     assert p["percent_yield"] == pytest.approx(75.0)
 
 
-def test_overall_yield_multiplies_step_yields():
+def test_one_pot_stages_share_reference_and_limiting():
+    """One reaction in two stages: one reference, and a reactant added in stage 2 can limit the yield."""
     from labnotebook.db import stoich_rows
     from labnotebook.stoich import compute_experiment
     steps = [{"id": 1}, {"id": 2}]
     reagents = [
-        dict(row(1, mw=100, basis="mmol", basis_value=10), step_id=1),
-        dict(row(2, role="product", mw=100, actual_mass_g=0.8), step_id=1),   # 80 %
-        dict(row(3, mw=100, basis="mass", basis_value=0.8), step_id=2),
-        dict(row(4, role="product", mw=100, actual_mass_g=0.4), step_id=2),   # 50 %
+        dict(row(1, mw=157.0, basis="mmol", basis_value=10), step_id=1),                       # bromobenzene
+        dict(row(2, role="reagent", mw=24.3, basis="equiv", basis_value=1.2), step_id=1),     # Mg
+        dict(row(3, mw=106.1, basis="mmol", basis_value=8), step_id=2),                        # aldehyde: limits
+        dict(row(4, role="product", mw=184.2, actual_mass_g=1.105), step_id=2),
     ]
     res = compute_experiment(steps, reagents, stoich_rows)
-    assert res["steps"][1]["step_yield"] == pytest.approx(80.0)
-    assert res["steps"][2]["step_yield"] == pytest.approx(50.0)
-    assert res["overall_yield"] == pytest.approx(40.0)
+    assert res["reference_id"] == 1 and res["rows"][2]["mmol"] == pytest.approx(12)
+    assert res["limiting_id"] == 3
+    assert res["rows"][4]["theoretical_mmol"] == pytest.approx(8)
+    assert res["yield"] == pytest.approx(1.105 / (8 * 0.1842) * 100)

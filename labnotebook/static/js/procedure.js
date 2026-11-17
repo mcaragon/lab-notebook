@@ -1,14 +1,16 @@
 /* Bench tab: reagent checklist, procedure and log.
-   Procedure rows sit next to the log on wide screens (each log entry belongs to the procedure step that was
+   Procedure rows are grouped into phases (setup, reaction, workup, purification, analysis and the experiment's own);
+   phases without rows are hidden. Procedure rows sit next to the log on wide screens (each log entry belongs to the procedure step that was
    highlighted when it was logged); on phones the entries are listed under their step. The log runs oldest to
    newest, like the procedure, with the composer underneath. */
 import { $, $$, esc, fmt, fmtDur, clockTime, isoWithOffset, localDateTimeValue, parseDuration, parseNum, preserveFocus, toast } from "./util.js";
-import { state, mutate, expId, multiStep, labelOf, reagentById } from "./state.js";
+import { state, mutate, expId, multiStage, labelOf, reagentById } from "./state.js";
 import { resizer } from "./resize.js";
 
 const wide = window.matchMedia("(min-width: 1000px)");
 wide.addEventListener("change", () => state.data && state.tab === "bench" && renderProcedure($("#sec-procedure")));
 const editing = new Set();      // procedure rows in edit mode
+let addPhase = null;            // phase new procedure rows go to (default: that of the current row)
 let editingEntry = null;
 let composer = { action: null, values: {} };
 let checklistOpen = !window.matchMedia("(max-width: 700px)").matches;
@@ -55,7 +57,7 @@ export function renderChecklist(root) {
       return;
     }
     const done = rows.filter((r) => r.actual_value != null).length;
-    const stepName = (r) => (multiStep() ? `<span class="badge">step ${d.steps.findIndex((s) => s.id === r.step_id) + 1}</span>` : "");
+    const stepName = (r) => (multiStage() && r.role !== "product" ? `<span class="badge">stage ${d.steps.findIndex((s) => s.id === r.step_id) + 1}</span>` : "");
     root.innerHTML = `<div class="panel checklist">
       <button class="row cl-head linklike" id="cl-toggle" aria-expanded="${checklistOpen}">
         <h2>Reagents</h2><span class="hint">${done} of ${rows.length} measured · type what you actually weighed or measured</span>
@@ -139,9 +141,12 @@ function draw(root) {
       <span class="hint">Tap a step to make it current; new log entries attach to it. Type <b>@</b> for a chemical.</span></div>
     <div class="pl ${isWide ? "wide" : "narrow"}">
       <div class="pl-proc">
-        <ol class="proc-list">${proc.map((p, i) => procRow(p, i, !isWide)).join("")}</ol>
+        ${phaseLists(proc, !isWide)}
         <div class="proc-add"><textarea id="proc-new" rows="2" data-key="proc-new" placeholder="Add a step… (Enter to add, Shift+Enter for a new line, @ for chemicals)"></textarea>
-          <button class="btn" id="proc-add-btn">Add step</button></div>
+          <div class="proc-add-side"><select id="proc-phase" data-key="proc-phase" aria-label="Phase of the new step">
+            ${d.phases.map((ph) => `<option value="${esc(ph.key)}" ${ph.key === newRowPhase() ? "selected" : ""}>${esc(ph.label)}</option>`).join("")}
+            <option value="__new">New phase…</option></select>
+          <button class="btn" id="proc-add-btn">Add step</button></div></div>
         ${!isWide ? orphanLog() : ""}
       </div>
       ${isWide ? resizer("--log-w", "next", 280, 900, "Resize the log") : ""}
@@ -157,9 +162,36 @@ function draw(root) {
   if (pp) pp.scrollTop = procTop;
 }
 
+/** Phase of a new procedure row: the one picked last, else the current row's, else Reaction. */
+function newRowPhase() {
+  const keys = state.data.phases.map((p) => p.key);
+  if (addPhase && keys.includes(addPhase)) return addPhase;
+  const cur = state.data.procedure.find((p) => p.id === state.currentProc);
+  return cur?.phase || "reaction";
+}
+
+function phaseLists(proc, nested) {
+  if (!proc.length && !state.data.phases.some((ph) => ph.custom)) return '<ol class="proc-list"></ol>';
+  let n = 0;
+  return state.data.phases.map((ph, k) => {
+    const rows = proc.filter((p) => p.phase === ph.key);
+    if (!rows.length && !ph.custom) return "";
+    const start = n;
+    n += rows.length;
+    const tools = ph.custom ? `<span class="ph-tools">
+      <button class="btn icon" data-ph-move="${esc(ph.key)}" data-dir="-1" title="Move phase up" aria-label="Move phase up" ${k === 0 ? "disabled" : ""}>↑</button>
+      <button class="btn icon" data-ph-move="${esc(ph.key)}" data-dir="1" title="Move phase down" aria-label="Move phase down" ${k === state.data.phases.length - 1 ? "disabled" : ""}>↓</button>
+      <button class="btn icon" data-ph-rename="${esc(ph.key)}" title="Rename phase" aria-label="Rename phase">✎</button>
+      <button class="btn icon danger" data-ph-del="${esc(ph.key)}" title="Remove phase (its steps move to Reaction)" aria-label="Remove phase">✕</button></span>` : "";
+    return `<div class="phase ph-${esc(ph.custom ? "custom" : ph.key)}" data-phase="${esc(ph.key)}">
+      <h4 class="phase-h"><span>${esc(ph.label)}</span><span class="ph-count">${rows.length || ""}</span>${tools}</h4>
+      ${rows.length ? `<ol class="proc-list" start="${start + 1}">${rows.map((p, i) => procRow(p, start + i, nested)).join("")}</ol>`
+        : '<div class="ph-empty">No steps yet: pick this phase when you add one.</div>'}</div>`;
+  }).join("");
+}
+
 function procRow(p, i, nested) {
   const cur = state.currentProc === p.id;
-  const step = multiStep() ? state.data.steps.findIndex((s) => s.id === p.step_id) : -1;
   const entries = state.data.entries.filter((e) => e.procedure_id === p.id);
   const ed = editing.has(p.id);
   return `<li class="proc ${cur ? "current" : ""} ${p.done_at ? "done" : ""}" data-pid="${p.id}">
@@ -170,8 +202,8 @@ function procRow(p, i, nested) {
         ${ed ? `<textarea class="proc-text" data-ptext="${p.id}" data-key="pt-${p.id}" rows="2">${esc(p.text)}</textarea>
           <input class="proc-notes" data-pnotes="${p.id}" data-key="pn-${p.id}" value="${esc(p.notes || "")}" placeholder="Notes for this step (cautions, tips)">
           <div class="row small">
-            ${multiStep() ? `<select data-pstep="${p.id}" aria-label="Reaction step">${state.data.steps.map((s, j) =>
-              `<option value="${s.id}" ${s.id === p.step_id ? "selected" : ""}>Step ${j + 1}${s.title ? ": " + esc(s.title) : ""}</option>`).join("")}</select>` : ""}
+            <select data-pphase="${p.id}" aria-label="Phase">${state.data.phases.map((ph) =>
+              `<option value="${esc(ph.key)}" ${ph.key === p.phase ? "selected" : ""}>${esc(ph.label)}</option>`).join("")}</select>
             <button class="btn icon" data-move="${p.id}" data-dir="-1" title="Move up" aria-label="Move up">↑</button>
             <button class="btn icon" data-move="${p.id}" data-dir="1" title="Move down" aria-label="Move down">↓</button>
             <span class="spacer"></span>
@@ -180,8 +212,7 @@ function procRow(p, i, nested) {
           </div>`
         : `<div class="proc-view" data-pselect="${p.id}">${p.html || '<span class="muted">(empty)</span>'}
             ${p.notes ? `<div class="proc-note">Note: ${esc(p.notes)}</div>` : ""}
-            <div class="proc-meta">${step >= 0 ? `<span class="badge">reaction step ${step + 1}</span>` : ""}
-              ${p.done_at ? `<span class="small muted">done ${esc(clockTime(p.done_at))}</span>` : ""}
+            <div class="proc-meta">${p.done_at ? `<span class="small muted">done ${esc(clockTime(p.done_at))}</span>` : ""}
               ${!nested && entries.length ? `<span class="small muted">${entries.length} log ${entries.length === 1 ? "entry" : "entries"}</span>` : ""}</div>
           </div>`}
       </div>
@@ -229,7 +260,9 @@ function composerHtml() {
     <div class="action-chips ${chipsHidden() ? "hidden" : ""}">${ACTION_ORDER.filter((k) => acts[k] && k !== "observation").map((k) =>
       `<button type="button" class="chip ${composer.action === k ? "on" : ""}" data-action="${k}">${esc(acts[k].label)}</button>`).join("")}</div>
     ${composer.action ? actionForm(composer.action) : ""}
-    <div class="hint ${chipsHidden() ? "hidden" : ""}">${cur >= 0 ? `Logging to procedure step ${cur + 1}.` : "Add procedure steps to group the log."}</div>
+    <div class="hint ${chipsHidden() ? "hidden" : ""}">${cur >= 0 ? `Logging to procedure step ${cur + 1}
+      <span class="ph-chip">${esc(state.data.phases.find((ph) => ph.key === state.data.procedure[cur].phase)?.label || "")}</span>.`
+      : "Add procedure steps to group the log."}</div>
   </div>`;
 }
 
@@ -266,6 +299,54 @@ function actionForm(key) {
     <div class="row">${timer}<span class="spacer"></span><button type="button" class="btn" id="af-cancel">Cancel</button>
       <button class="btn primary">${key === "timer" ? "Start timer" : "Log " + esc(a.label.toLowerCase())}</button></div>
   </form>`;
+}
+
+// ------------------------------------------------------------------------------------------- phases
+const putPhases = (list) => mutate("PUT", `/api/experiments/${expId()}`, { phases: list.map(({ key, label }) => ({ key, label })) });
+
+async function newPhase() {
+  const label = (prompt("Name of the new phase (e.g. Recrystallization, Preparation of the catalyst):") || "").trim();
+  if (!label) return null;
+  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "phase";
+  const keys = new Set(state.data.phases.map((p) => p.key));
+  let key = base, n = 2;
+  while (keys.has(key) || ["setup", "reaction", "workup", "purification", "analysis"].includes(key)) key = `${base}-${n++}`;
+  const list = [...state.data.phases];
+  const at = list.findIndex((p) => p.key === "analysis");  // before Analysis; move it with the arrows
+  list.splice(at < 0 ? list.length : at, 0, { key, label });
+  await putPhases(list);
+  return key;
+}
+
+function bindPhases(root) {
+  const sel = $("#proc-phase", root);
+  if (sel) sel.addEventListener("change", async () => {
+    if (sel.value !== "__new") { addPhase = sel.value; return; }
+    try {
+      const key = await newPhase();
+      if (key) addPhase = key;
+    } catch { /* toast shown */ }
+    renderProcedure($("#sec-procedure"));
+    $("#proc-new")?.focus();
+  });
+  $$("[data-ph-move]", root).forEach((b) => (b.onclick = () => {
+    const list = [...state.data.phases];
+    const i = list.findIndex((p) => p.key === b.dataset.phMove), j = i + Number(b.dataset.dir);
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    putPhases(list).catch(() => {});
+  }));
+  $$("[data-ph-rename]", root).forEach((b) => (b.onclick = () => {
+    const ph = state.data.phases.find((p) => p.key === b.dataset.phRename);
+    const label = (prompt("Rename the phase:", ph.label) || "").trim();
+    if (label && label !== ph.label) putPhases(state.data.phases.map((p) => (p.key === ph.key ? { ...p, label } : p))).catch(() => {});
+  }));
+  $$("[data-ph-del]", root).forEach((b) => (b.onclick = () => {
+    const ph = state.data.phases.find((p) => p.key === b.dataset.phDel);
+    const n = state.data.procedure.filter((p) => p.phase === ph.key).length;
+    if (n && !confirm(`Remove the phase “${ph.label}”? Its ${n} step${n === 1 ? "" : "s"} move to Reaction.`)) return;
+    putPhases(state.data.phases.filter((p) => p.key !== ph.key)).catch(() => {});
+  }));
 }
 
 function findReagent(name) {
@@ -418,8 +499,9 @@ function bind(root) {
     mentions(t, { plain: true });
     t.addEventListener("change", () => mutate("PUT", `/api/procedure/${t.dataset.pnotes}`, { notes: t.value.trim() || null }).catch(() => {}));
   });
-  $$("[data-pstep]", root).forEach((s) => s.addEventListener("change", () =>
-    mutate("PUT", `/api/procedure/${s.dataset.pstep}`, { step_id: Number(s.value) }).catch(() => {})));
+  $$("[data-pphase]", root).forEach((s) => s.addEventListener("change", () =>
+    mutate("PUT", `/api/procedure/${s.dataset.pphase}`, { phase: s.value }).catch(() => {})));
+  bindPhases(root);
   $$("[data-done]", root).forEach((c) => c.addEventListener("change", async () => {
     const pid = Number(c.dataset.done);
     await mutate("PUT", `/api/procedure/${pid}`, { done: c.checked });
@@ -436,9 +518,10 @@ function bind(root) {
     }
   }));
   $$("[data-move]", root).forEach((b) => (b.onclick = () => {
+    // moves within its phase (rows are ordered by phase, then position)
     const ids = state.data.procedure.map((p) => p.id);
     const i = ids.indexOf(Number(b.dataset.move)), j = i + Number(b.dataset.dir);
-    if (j < 0 || j >= ids.length) return;
+    if (j < 0 || j >= ids.length || state.data.procedure[i].phase !== state.data.procedure[j].phase) return;
     [ids[i], ids[j]] = [ids[j], ids[i]];
     mutate("PUT", `/api/experiments/${expId()}/procedure/order`, ids).catch(() => {});
   }));
@@ -447,8 +530,8 @@ function bind(root) {
   const addProc = async () => {
     const text = nw.value.trim();
     if (!text) return;
-    const body = { text };
-    if (multiStep()) body.step_id = currentStepId();
+    const body = { text, phase: newRowPhase() };
+    if (multiStage()) body.step_id = currentStepId();
     await mutate("POST", `/api/experiments/${expId()}/procedure`, body);
     const again = $("#proc-new");
     if (again) { again.value = ""; again.focus(); }

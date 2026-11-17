@@ -54,4 +54,5 @@ export const expId = () => state.data?.experiment.id;
 export const nowServer = () => Date.now() + state.clockOffset;
 export const reagentById = (id) => state.data?.reagents.find((r) => r.id === Number(id));
 export const labelOf = (r) => (r?.label || r?.name || "?");
-export const multiStep = () => (state.data?.steps.length || 0) > 1;
+/** A one-pot reaction in several stages. */
+export const multiStage = () => (state.data?.steps.length || 0) > 1;

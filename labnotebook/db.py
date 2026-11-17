@@ -1,7 +1,15 @@
 """SQLite storage.
 
-An experiment has reaction steps (each with condition stages and its own reagents), procedure rows, a log of
-entries, timers and reference rows. Schema version 2; version 1 databases are migrated on open.
+An experiment is one reaction: one arrow in a scheme, with one or more one-pot *stages* (table ``steps``; each has
+condition rows and its own reagents), procedure rows grouped into *phases* (setup, reaction, workup, purification,
+analysis and the experiment's own), a log of entries, timers and reference rows.
+
+A *project* groups experiments into a route. Experiments are linked by material: a starting material whose
+``source_reagent_id`` is the product of another experiment is a portion of that product. Links make the route a
+graph, so routes can branch (one product used in several experiments) and converge.
+
+Schema version 3; older databases are migrated on open (v2 multi-step experiments are split into one experiment per
+step, linked through their intermediates and grouped into a project).
 """
 from __future__ import annotations
 
@@ -13,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Free-text sections of an experiment (key, heading)
 SECTIONS = [
@@ -25,16 +33,21 @@ SECTIONS = [
 SECTION_KEYS = [k for k, _ in SECTIONS]
 STATUSES = ("planned", "in_progress", "completed")
 SCHEME_STYLES = ("auto", "inline", "lettered")
+# Procedure phases every experiment has (shown only when they have rows); experiments can add their own
+PHASES = [("setup", "Setup"), ("reaction", "Reaction"), ("workup", "Workup"), ("purification", "Purification"),
+          ("analysis", "Analysis")]
+DEFAULT_PHASE = "reaction"
 
 # Chemical data columns that can come from PubChem Local (and be overridden by the user)
 CHEM_FIELDS = ["name", "iupac_name", "cas", "formula", "smiles", "mw", "density", "bp", "mp", "flash_point",
                "refractive_index", "signal_word"]
-JSON_FIELDS = {"pictograms": list, "hazard_statements": list, "sources": dict, "data": dict, "extra_hazards": dict}
+JSON_FIELDS = {"pictograms": list, "hazard_statements": list, "sources": dict, "data": dict, "extra_hazards": dict,
+               "phases": list}
 
 # Writable columns per table
 FIELDS = {
     "experiments": ["title", "date", "author", "course", "status", "scheme_style", "started_at", "ended_at",
-                    *SECTION_KEYS],
+                    "phases", *SECTION_KEYS],
     "steps": ["title", "notes", "atmosphere", "position"],
     "conditions": ["step_id", "temperature", "duration", "note", "position"],
     "reagents": ["step_id", "position", "cid", "pubchem_url", *CHEM_FIELDS, "pictograms", "hazard_statements",
@@ -42,14 +55,14 @@ FIELDS = {
                  "coefficient", "basis", "basis_value", "is_reference", "actual_basis", "actual_value",
                  "actual_mass_g", "crude_mass_g", "expected_yield_pct", "expected_ref_id", "source_reagent_id",
                  "scheme_pos", "grade", "supplier", "lot", "notes"],
-    "procedure": ["step_id", "position", "text", "notes", "done_at"],
+    "procedure": ["step_id", "phase", "position", "text", "notes", "done_at"],
     "entries": ["ts", "elapsed_s", "kind", "action", "text", "value", "unit", "data", "custom_text", "step_id",
                 "procedure_id", "timer_id"],
     "timers": ["label", "kind", "started_at", "duration_s", "stopped_at", "elapsed_s", "start_entry_id",
                "stop_entry_id", "procedure_id", "reagent_id"],
     "refs": ["position", "authors", "title", "source", "year", "volume", "pages", "doi", "url", "text"],
-    "sequences": ["title", "notes", "scheme_style"],
-    "sequence_items": ["position"],
+    "projects": ["title", "notes", "scheme_style"],
+    "project_items": ["position"],
 }
 BOOL_FIELDS = {"is_reference", "custom_text"}
 # Tables whose rows belong directly to an experiment (others belong to a step)
@@ -153,21 +166,64 @@ CREATE INDEX IF NOT EXISTS steps_exp ON steps(experiment_id, position);
 """
 
 
-# Tables added after schema version 2 was first released; created on every start if missing
+_V3 = """
+ALTER TABLE procedure ADD COLUMN phase TEXT NOT NULL DEFAULT 'reaction';
+ALTER TABLE experiments ADD COLUMN phases TEXT;
+"""
+
+# Created on every start if missing
 _ALWAYS = """
-CREATE TABLE IF NOT EXISTS sequences (
+CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '', notes TEXT, scheme_style TEXT NOT NULL DEFAULT 'auto',
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS sequence_items (
+CREATE TABLE IF NOT EXISTS project_items (
     id INTEGER PRIMARY KEY,
-    sequence_id INTEGER NOT NULL REFERENCES sequences(id) ON DELETE CASCADE,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
     position INTEGER NOT NULL DEFAULT 0,
-    UNIQUE (sequence_id, experiment_id)
+    UNIQUE (project_id, experiment_id)
 );
 """
+
+# Keywords that place a migrated procedure row in a phase (first match wins; the rest stay in "reaction")
+_PHASE_WORDS = [
+    ("analysis", r"\b(nmr|ir spectrum|ftir|melting point|mp\b|gc-?ms|lc-?ms|hplc|characteri[sz]|purity|uv-vis)"),
+    ("purification", r"\b(column|chromatograph|recrystalli[sz]|distil|sublim|flash|prep(arative)? tlc|triturat)"),
+    ("workup", r"\b(quench|extract|wash|brine|dried over|dry over|dry the|mgso4|na2so4|filter|concentrat|rotary|"
+               r"rotovap|evaporat|separat|work-?up|neutrali[sz]|acidif|basif)"),
+    ("setup", r"\b(flame-?dr|oven-?dr|set up|assemble|charge(d)? (a|the) flask|purge|under (n2|nitrogen|argon))"),
+]
+
+
+def guess_phase(text: str) -> str:
+    t = (text or "").lower()
+    for phase, rx in _PHASE_WORDS:
+        if re.search(rx, t):
+            return phase
+    return DEFAULT_PHASE
+
+
+def phase_list(exp: Optional[dict]) -> list[dict]:
+    """An experiment's phases in order: the defaults plus its own ({key, label, custom})."""
+    stored = [p for p in ((exp or {}).get("phases") or []) if isinstance(p, dict) and p.get("key")]
+    defaults = dict(PHASES)
+    out, seen = [], set()
+    for p in stored:
+        k = str(p["key"])
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({"key": k, "label": defaults.get(k) or str(p.get("label") or k), "custom": k not in defaults})
+    # defaults missing from the stored order go back in their usual place
+    for i, (k, label) in enumerate(PHASES):
+        if k not in seen:
+            after = [PHASES[j][0] for j in range(i)]
+            pos = max((n + 1 for n, p in enumerate(out) if p["key"] in after), default=0)
+            out.insert(pos, {"key": k, "label": label, "custom": False})
+            seen.add(k)
+    return out
 
 
 def now() -> str:
@@ -216,6 +272,123 @@ def split_procedure(text: str) -> list[str]:
     return [s for s in steps if s]
 
 
+def _ident(r: Any) -> Any:
+    """What makes two reagent rows the same compound."""
+    return r["cid"] or (r["smiles"] or "").strip() or (r["name"] or "").strip().lower() or None
+
+
+def _assign_entries(entries: list, procedure: list, timers: list, step_ids: list) -> dict:
+    """Step of each log entry: its own, its procedure row's, or that of the entry before it."""
+    proc_step = {p["id"]: p["step_id"] for p in procedure}
+    timer_proc = {t["id"]: t["procedure_id"] for t in timers}
+    valid = set(step_ids)
+    out, last = {}, step_ids[0]
+    for e in entries:
+        sid = e["step_id"]
+        if sid not in valid:
+            sid = proc_step.get(e["procedure_id"] or timer_proc.get(e["timer_id"]))
+        if sid not in valid:
+            sid = last
+        out[e["id"]] = sid
+        last = sid
+    return out
+
+
+def _migrate_v3(c: sqlite3.Connection) -> None:
+    """Phases for procedure rows; one experiment per reaction (v2 multi-step experiments are split); projects link
+    their experiments by material."""
+    for p in c.execute("SELECT id, text FROM procedure").fetchall():
+        c.execute("UPDATE procedure SET phase = ? WHERE id = ?", (guess_phase(p["text"]), p["id"]))
+
+    exp_cols = [r[1] for r in c.execute("PRAGMA table_info(experiments)")]
+    copy_cols = [k for k in ("date", "author", "course", "status", "scheme_style", "objective") if k in exp_cols]
+    for exp in c.execute("SELECT * FROM experiments ORDER BY id").fetchall():
+        eid = exp["id"]
+        steps = c.execute("SELECT * FROM steps WHERE experiment_id = ? ORDER BY position, id", (eid,)).fetchall()
+        if len(steps) < 2:
+            continue
+        entries = c.execute("SELECT * FROM entries WHERE experiment_id = ? ORDER BY ts, id", (eid,)).fetchall()
+        procedure = c.execute("SELECT * FROM procedure WHERE experiment_id = ?", (eid,)).fetchall()
+        timers = c.execute("SELECT * FROM timers WHERE experiment_id = ?", (eid,)).fetchall()
+        refs = c.execute("SELECT * FROM refs WHERE experiment_id = ? ORDER BY position, id", (eid,)).fetchall()
+        entry_step = _assign_entries(entries, procedure, timers, [s["id"] for s in steps])
+        title = exp["title"] or "Untitled experiment"
+        stamp = now()
+        new_ids = []
+        for k, s in enumerate(steps[1:], 2):
+            vals = {col: exp[col] for col in copy_cols}
+            vals.update(title=f"{title} — step {k}" + (f": {s['title']}" if s["title"] else ""),
+                        created_at=stamp, updated_at=stamp)
+            cols = ", ".join(_q(x) for x in vals)
+            nid = c.execute(f"INSERT INTO experiments ({cols}) VALUES ({', '.join('?' * len(vals))})",
+                            list(vals.values())).lastrowid
+            new_ids.append(nid)
+            c.execute("UPDATE steps SET experiment_id = ?, position = 0 WHERE id = ?", (nid, s["id"]))
+            c.execute("UPDATE reagents SET experiment_id = ? WHERE step_id = ?", (nid, s["id"]))
+            c.execute("UPDATE procedure SET experiment_id = ? WHERE step_id = ?", (nid, s["id"]))
+            moved = [e for e in entries if entry_step[e["id"]] == s["id"]]
+            moved_ids = {e["id"] for e in moved}
+            moved_procs = {p["id"] for p in procedure if p["step_id"] == s["id"]}
+            for e in moved:
+                c.execute("UPDATE entries SET experiment_id = ? WHERE id = ?", (nid, e["id"]))
+            for t in timers:
+                if t["start_entry_id"] in moved_ids or t["procedure_id"] in moved_procs:
+                    c.execute("UPDATE timers SET experiment_id = ? WHERE id = ?", (nid, t["id"]))
+            ref_map = {}
+            for r in refs:
+                rc = [x for x in r.keys() if x not in ("id", "experiment_id")]
+                ref_map[r["id"]] = c.execute(
+                    f"INSERT INTO refs (experiment_id, {', '.join(_q(x) for x in rc)}) VALUES (?{', ?' * len(rc)})",
+                    [nid, *[r[x] for x in rc]]).lastrowid
+            for old, new in ref_map.items():
+                c.execute("UPDATE reagents SET expected_ref_id = ? WHERE experiment_id = ? AND expected_ref_id = ?",
+                          (new, nid, old))
+            if moved:  # the clock of the new experiment runs from its first entry
+                start = moved[0]["ts"]
+                c.execute("UPDATE experiments SET started_at = ?, ended_at = ? WHERE id = ?",
+                          (start, moved[-1]["ts"] if exp["ended_at"] else None, nid))
+                for e in moved:
+                    c.execute("UPDATE entries SET elapsed_s = ? WHERE id = ?", (elapsed_between(start, e["ts"]), e["id"]))
+        c.execute("UPDATE experiments SET title = ? WHERE id = ?",
+                  (f"{title} — step 1" + (f": {steps[0]['title']}" if steps[0]["title"] else ""), eid))
+        # the new experiments follow the original in its projects (or in a new project)
+        memberships = c.execute("SELECT project_id, position FROM project_items WHERE experiment_id = ?",
+                                (eid,)).fetchall()
+        if not memberships:
+            pid = c.execute("INSERT INTO projects (title, created_at, updated_at) VALUES (?, ?, ?)",
+                            (title, stamp, stamp)).lastrowid
+            c.execute("INSERT INTO project_items (project_id, experiment_id, position) VALUES (?, ?, 0)", (pid, eid))
+            memberships = [{"project_id": pid, "position": 0}]
+        for m in memberships:
+            n = len(new_ids)
+            c.execute("UPDATE project_items SET position = position + ? WHERE project_id = ? AND position > ?",
+                      (n, m["project_id"], m["position"]))
+            for i, nid in enumerate(new_ids, 1):
+                c.execute("INSERT OR IGNORE INTO project_items (project_id, experiment_id, position) VALUES (?, ?, ?)",
+                          (m["project_id"], nid, m["position"] + i))
+
+    # Former sequences linked consecutive experiments by compound; make those links explicit
+    for proj in c.execute("SELECT id FROM projects").fetchall():
+        members = [r[0] for r in c.execute("SELECT experiment_id FROM project_items WHERE project_id = ? "
+                                           "ORDER BY position, id", (proj["id"],))]
+        for a, b in zip(members, members[1:]):
+            prods = c.execute("SELECT * FROM reagents WHERE experiment_id = ? AND role = 'product'", (a,)).fetchall()
+            if not prods:
+                continue
+            prod_ids = {p["id"] for p in prods}
+            reactants = c.execute("SELECT * FROM reagents WHERE experiment_id = ? AND role = 'reactant'",
+                                  (b,)).fetchall()
+            if any(r["source_reagent_id"] in prod_ids for r in reactants):
+                continue
+            for r in reactants:
+                if r["source_reagent_id"]:
+                    continue
+                match = next((p for p in prods if _ident(p) and _ident(p) == _ident(r)), None)
+                if match:
+                    c.execute("UPDATE reagents SET source_reagent_id = ? WHERE id = ?", (match["id"], r["id"]))
+                    break
+
+
 class Store:
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -228,7 +401,16 @@ class Store:
                 c.executescript(_V2)
                 if not fresh:
                     self._migrate_v1(c)
+            if version < 3:
+                c.executescript(_V3)
+                tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+                if "sequences" in tables and "projects" not in tables:
+                    c.execute("ALTER TABLE sequences RENAME TO projects")
+                    c.execute("ALTER TABLE sequence_items RENAME TO project_items")
+                    c.execute("ALTER TABLE project_items RENAME COLUMN sequence_id TO project_id")
             c.executescript(_ALWAYS)
+            if version < 3 and not fresh:
+                _migrate_v3(c)
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod
@@ -345,8 +527,9 @@ class Store:
         with self.conn() as c:
             rows = c.execute(
                 "SELECT e.id, e.title, e.date, e.status, e.course, e.updated_at, "
-                "(SELECT COUNT(*) FROM steps s WHERE s.experiment_id = e.id) AS n_steps, "
-                "(SELECT COUNT(*) FROM reagents r WHERE r.experiment_id = e.id) AS n_reagents "
+                "(SELECT COUNT(*) FROM reagents r WHERE r.experiment_id = e.id) AS n_reagents, "
+                "(SELECT COALESCE(r.label, r.name) FROM reagents r WHERE r.experiment_id = e.id AND r.role = 'product' "
+                "ORDER BY r.position, r.id LIMIT 1) AS product "
                 "FROM experiments e ORDER BY COALESCE(e.date, '') DESC, e.id DESC").fetchall()
         return [dict(r) for r in rows]
 
@@ -390,14 +573,24 @@ class Store:
             "experiment": exp,
             "steps": steps,
             "reagents": self.list("reagents", "experiment_id = ?", (exp_id,)),
-            "procedure": self.list("procedure", "experiment_id = ?", (exp_id,)),
+            "procedure": self.ordered_procedure(exp_id, exp),
             "entries": self.list("entries", "experiment_id = ?", (exp_id,), order="ts, id"),
             "timers": self.list("timers", "experiment_id = ?", (exp_id,), order="started_at, id"),
             "refs": self.list("refs", "experiment_id = ?", (exp_id,)),
         }
 
+    def ordered_procedure(self, exp_id: int, exp: Optional[dict] = None) -> list[dict]:
+        """Procedure rows in reading order: by phase, then position."""
+        exp = exp or self.get_experiment(exp_id)
+        order = {p["key"]: i for i, p in enumerate(phase_list(exp))}
+        rows = self.list("procedure", "experiment_id = ?", (exp_id,))
+        for p in rows:
+            if p.get("phase") not in order:
+                p["phase"] = DEFAULT_PHASE
+        return sorted(rows, key=lambda p: (order[p["phase"]], p["position"], p["id"]))
+
     def duplicate_experiment(self, exp_id: int) -> Optional[int]:
-        """Copy the plan: text, steps, conditions, reagents (planned amounts only), procedure and references."""
+        """Copy the plan: text, phases, stages, conditions, reagents (planned amounts only), procedure and references."""
         b = self.bundle(exp_id)
         if not b:
             return None
@@ -415,10 +608,13 @@ class Store:
             step_map[s["id"]] = self.insert("steps", s, experiment_id=new_id)
             for k in s["conditions"]:
                 self.insert("conditions", {**k, "step_id": step_map[s["id"]]})
+        own = {r["id"] for r in b["reagents"]}
         for r in b["reagents"]:
+            # a starting material taken from another experiment's product stays linked to that product
+            src = r.get("source_reagent_id")
             r = dict(r, actual_basis=None, actual_value=None, actual_mass_g=None, crude_mass_g=None,
                      step_id=step_map.get(r["step_id"]), expected_ref_id=ref_map.get(r.get("expected_ref_id")),
-                     source_reagent_id=None)
+                     source_reagent_id=None if src in own else src)
             reagent_map[r["id"]] = self.insert("reagents", r, experiment_id=new_id)
         for r in b["reagents"]:
             if r.get("source_reagent_id") in reagent_map:
@@ -428,6 +624,32 @@ class Store:
             self.insert("procedure", dict(p, done_at=None, step_id=step_map.get(p["step_id"])),
                         experiment_id=new_id)
         return new_id
+
+    def products(self, q: str = "", exclude_exp: Optional[int] = None, limit: int = 12) -> list[dict]:
+        """Products of experiments (newest first) whose name, label, formula or CAS contains ``q``."""
+        like = f"%{q.strip().lower()}%"
+        with self.conn() as c:
+            rows = c.execute(
+                "SELECT r.id, r.name, r.label, r.formula, r.cas, r.cid, r.actual_mass_g, r.crude_mass_g, "
+                "e.id AS experiment_id, e.title AS experiment, e.date FROM reagents r "
+                "JOIN experiments e ON e.id = r.experiment_id WHERE r.role = 'product' AND e.id IS NOT ? "
+                "AND (LOWER(COALESCE(r.name, '')) LIKE ? OR LOWER(COALESCE(r.label, '')) LIKE ? "
+                "OR LOWER(COALESCE(r.formula, '')) LIKE ? OR COALESCE(r.cas, '') LIKE ?) "
+                "ORDER BY COALESCE(e.date, '') DESC, e.id DESC LIMIT ?",
+                (exclude_exp, like, like, like, like, limit)).fetchall()
+        return [dict(r) for r in rows]
+
+    def uses_of(self, product_ids: Iterable[int]) -> list[dict]:
+        """Starting materials taken from these products (in any experiment)."""
+        ids = list(product_ids)
+        if not ids:
+            return []
+        with self.conn() as c:
+            rows = c.execute(
+                f"SELECT r.*, e.title AS experiment, e.status AS experiment_status FROM reagents r "
+                f"JOIN experiments e ON e.id = r.experiment_id "
+                f"WHERE r.source_reagent_id IN ({', '.join('?' * len(ids))}) ORDER BY e.id", ids).fetchall()
+        return [self._out(r) for r in rows]
 
     # ------------------------------------------------------------------ reagents
     def add_reagent(self, exp_id: int, data: dict) -> int:
@@ -443,11 +665,11 @@ class Store:
             self._single_reference(rid)
 
     def _single_reference(self, rid: int) -> None:
-        """Only one reference reagent per step."""
+        """Only one reference reagent per experiment (one reaction, all stages)."""
         with self.conn() as c:
-            row = c.execute("SELECT experiment_id, step_id FROM reagents WHERE id = ?", (rid,)).fetchone()
-            c.execute("UPDATE reagents SET is_reference = 0 WHERE experiment_id = ? AND step_id IS ? AND id != ?",
-                      (row["experiment_id"], row["step_id"], rid))
+            row = c.execute("SELECT experiment_id FROM reagents WHERE id = ?", (rid,)).fetchone()
+            c.execute("UPDATE reagents SET is_reference = 0 WHERE experiment_id = ? AND id != ?",
+                      (row["experiment_id"], rid))
 
 
 def stoich_rows(reagents: list[dict]) -> list[dict]:
@@ -457,72 +679,67 @@ def stoich_rows(reagents: list[dict]) -> list[dict]:
     return [{k: r.get(k) for k in keys} for r in reagents]
 
 
-# ---------------------------------------------------------------------------------------------- sequences
-def _seq_methods():
-    """Sequence storage (attached to Store below to keep the class readable)."""
+# ---------------------------------------------------------------------------------------------- projects
+def _project_methods():
+    """Project storage (attached to Store below to keep the class readable)."""
 
-    def list_sequences(self) -> list[dict]:
+    def list_projects(self) -> list[dict]:
         with self.conn() as c:
-            seqs = [dict(r) for r in c.execute("SELECT * FROM sequences ORDER BY updated_at DESC, id DESC")]
-            for q in seqs:
+            projs = [dict(r) for r in c.execute("SELECT * FROM projects ORDER BY updated_at DESC, id DESC")]
+            for q in projs:
                 q["experiments"] = [dict(r) for r in c.execute(
-                    "SELECT e.id, e.title, e.date, e.status FROM sequence_items i JOIN experiments e "
-                    "ON e.id = i.experiment_id WHERE i.sequence_id = ? ORDER BY i.position, i.id", (q["id"],))]
-        return seqs
+                    "SELECT e.id, e.title, e.date, e.status FROM project_items i JOIN experiments e "
+                    "ON e.id = i.experiment_id WHERE i.project_id = ? ORDER BY i.position, i.id", (q["id"],))]
+        return projs
 
-    def create_sequence(self, data: dict, experiment_ids: Iterable[int] = ()) -> int:
-        vals = {k: v for k, v in self._in("sequences", data).items() if v is not None}
-        vals.setdefault("title", "Untitled sequence")
+    def create_project(self, data: dict, experiment_ids: Iterable[int] = ()) -> int:
+        vals = {k: v for k, v in self._in("projects", data).items() if v is not None}
+        vals.setdefault("title", "Untitled project")
         vals["created_at"] = vals["updated_at"] = now()
         cols = ", ".join(_q(k) for k in vals)
         with self.conn() as c:
-            sid = c.execute(f"INSERT INTO sequences ({cols}) VALUES ({', '.join('?' * len(vals))})",
+            pid = c.execute(f"INSERT INTO projects ({cols}) VALUES ({', '.join('?' * len(vals))})",
                             list(vals.values())).lastrowid
         for eid in experiment_ids:
-            self.add_to_sequence(sid, eid)
-        return sid
+            self.add_to_project(pid, eid)
+        return pid
 
-    def get_sequence(self, seq_id: int) -> Optional[dict]:
-        seq = self.get("sequences", seq_id)
-        if seq:
+    def get_project(self, project_id: int) -> Optional[dict]:
+        proj = self.get("projects", project_id)
+        if proj:
             with self.conn() as c:
-                seq["experiment_ids"] = [r[0] for r in c.execute(
-                    "SELECT experiment_id FROM sequence_items WHERE sequence_id = ? ORDER BY position, id", (seq_id,))]
-        return seq
+                proj["experiment_ids"] = [r[0] for r in c.execute(
+                    "SELECT experiment_id FROM project_items WHERE project_id = ? ORDER BY position, id",
+                    (project_id,))]
+        return proj
 
-    def update_sequence(self, seq_id: int, data: dict) -> None:
-        vals = self._in("sequences", data)
+    def update_project(self, project_id: int, data: dict) -> None:
+        vals = self._in("projects", data)
         vals["updated_at"] = now()
         sets = ", ".join(f"{_q(k)} = ?" for k in vals)
         with self.conn() as c:
-            c.execute(f"UPDATE sequences SET {sets} WHERE id = ?", [*vals.values(), seq_id])
+            c.execute(f"UPDATE projects SET {sets} WHERE id = ?", [*vals.values(), project_id])
 
-    def add_to_sequence(self, seq_id: int, exp_id: int) -> None:
+    def add_to_project(self, project_id: int, exp_id: int) -> None:
         with self.conn() as c:
-            pos = c.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM sequence_items WHERE sequence_id = ?",
-                            (seq_id,)).fetchone()[0]
-            c.execute("INSERT OR IGNORE INTO sequence_items (sequence_id, experiment_id, position) VALUES (?, ?, ?)",
-                      (seq_id, exp_id, pos))
-            c.execute("UPDATE sequences SET updated_at = ? WHERE id = ?", (now(), seq_id))
+            pos = c.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM project_items WHERE project_id = ?",
+                            (project_id,)).fetchone()[0]
+            c.execute("INSERT OR IGNORE INTO project_items (project_id, experiment_id, position) VALUES (?, ?, ?)",
+                      (project_id, exp_id, pos))
+            c.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (now(), project_id))
 
-    def remove_from_sequence(self, seq_id: int, exp_id: int) -> None:
+    def remove_from_project(self, project_id: int, exp_id: int) -> None:
         with self.conn() as c:
-            c.execute("DELETE FROM sequence_items WHERE sequence_id = ? AND experiment_id = ?", (seq_id, exp_id))
+            c.execute("DELETE FROM project_items WHERE project_id = ? AND experiment_id = ?", (project_id, exp_id))
 
-    def order_sequence(self, seq_id: int, exp_ids: list[int]) -> None:
-        with self.conn() as c:
-            for pos, eid in enumerate(exp_ids):
-                c.execute("UPDATE sequence_items SET position = ? WHERE sequence_id = ? AND experiment_id = ?",
-                          (pos, seq_id, eid))
-
-    def sequences_of(self, exp_id: int) -> list[dict]:
+    def projects_of(self, exp_id: int) -> list[dict]:
         with self.conn() as c:
             return [dict(r) for r in c.execute(
-                "SELECT s.id, s.title FROM sequence_items i JOIN sequences s ON s.id = i.sequence_id "
-                "WHERE i.experiment_id = ? ORDER BY s.id", (exp_id,))]
+                "SELECT p.id, p.title FROM project_items i JOIN projects p ON p.id = i.project_id "
+                "WHERE i.experiment_id = ? ORDER BY p.id", (exp_id,))]
 
     return locals()
 
 
-for _name, _fn in _seq_methods().items():
+for _name, _fn in _project_methods().items():
     setattr(Store, _name, _fn)

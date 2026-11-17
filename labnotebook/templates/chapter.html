@@ -1,5 +1,5 @@
 {#- Body of one experiment's report. Variables: c (experiment context), lvl (heading level of its sections). -#}
-{%- set H = 'h' ~ lvl %}{% set H2 = 'h' ~ (lvl + 1) %}
+{%- set H = 'h' ~ lvl %}
 {%- macro hazard_cell(h) -%}
   {%- if h.forbidden %}<span class="forbidden">DOT: FORBIDDEN</span><br>{% endif -%}
   {%- for p in h.pictograms %}{% if c.ghs.get(p) %}<img class="ghs" src="{{ c.ghs[p] }}" alt="{{ p }}">{% else %}<span class="tag">{{ p }}</span> {% endif %}{% endfor -%}
@@ -11,13 +11,16 @@
   {%- if h.notes %}<div><i>{{ h.notes }}</i></div>{% endif %}
 {%- endmacro %}
 
-{%- macro reagent_table(st) %}
-{%- if st.inputs %}
+{%- macro reagent_table() %}
+{%- if c.inputs %}
 <table class="reag">
   <thead><tr><th>Compound</th><th class="num">MW</th><th class="num">Amount</th><th class="num">mmol</th><th class="num">equiv</th>
     <th>Properties</th><th>Hazards</th></tr></thead>
   <tbody>
-  {%- for x in st.inputs %}
+  {%- for x in c.inputs %}
+  {%- if c.multi_stage and (loop.first or c.inputs[loop.index0 - 1].stage != x.stage) %}
+  <tr class="stage-row"><td colspan="7">Stage {{ x.stage }}{% set stg = c.stages[x.stage - 1] %}{% if stg.s.atmosphere or stg.conditions %} <span class="small">· {{ [stg.s.atmosphere, stg.conditions] | select | join(', ') }}</span>{% endif %}</td></tr>
+  {%- endif %}
   <tr>
     <td class="cmp"><strong>{{ x.r.name or '?' }}</strong>{% if x.c.is_limiting %} <span class="tag lim">limiting</span>{% endif %}
       <br><span class="small">{{ x.role }}{% if x.r.cas %} · CAS {{ x.r.cas }}{% endif %}{% if x.form %} · {{ x.form }}{% endif %}</span>
@@ -33,18 +36,17 @@
   {%- endfor %}
   </tbody>
 </table>
-{%- if st.planned_only %}<p class="footnote">* Planned amount; no measurement was recorded.</p>{% endif %}
-{%- if st.legend %}<p class="legend">{% for code, text in st.legend %}<b>{{ code }}</b> {{ text.split(': ', 1)[1] if ': ' in text else text }}{% if not loop.last %}; {% endif %}{% endfor %}</p>{% endif %}
+{%- if c.planned_only %}<p class="footnote">* Planned amount; no measurement was recorded.</p>{% endif %}
+{%- if c.legend %}<p class="legend">{% for code, text in c.legend %}<b>{{ code }}</b> {{ text.split(': ', 1)[1] if ': ' in text else text }}{% if not loop.last %}; {% endif %}{% endfor %}</p>{% endif %}
 {%- endif %}
 {%- endmacro %}
 
-{%- macro yield_table(st) %}
-{%- if st.products %}
+{%- macro yield_table() %}
 <table>
   <thead><tr><th>Product</th><th class="num">MW</th><th class="num">Theoretical</th><th class="num">Expected</th>
     <th class="num">Crude</th><th class="num">Isolated</th><th class="num">Yield</th><th>Hazards</th></tr></thead>
   <tbody>
-  {%- for x in st.products %}
+  {%- for x in c.products %}
   <tr>
     <td><strong>{{ x.r.name }}</strong>{% if x.r.cas %}<br><span class="small">CAS {{ x.r.cas }}</span>{% endif %}
       {%- if x.r.notes %}<br><span class="small"><i>{{ x.r.notes }}</i></span>{% endif %}</td>
@@ -59,40 +61,6 @@
   {%- endfor %}
   </tbody>
 </table>
-{%- endif %}
-{%- endmacro %}
-
-{%- macro step_body(st, h) %}
-{{ reagent_table(st) }}
-{%- if st.procedure %}
-<{{ h }}>Procedure and log</{{ h }}>
-<table class="proclog">
-  <thead><tr><th class="pl-p">Procedure</th><th>Log</th></tr></thead>
-  <tbody>
-  {%- for row in st.proc_log %}
-  <tr>
-    <td class="pl-p">{% if row.p %}<b>{{ row.p.n }}.</b> {{ row.p.html | safe }}
-      {%- if row.p.notes %}<br><span class="note">Note: {{ row.p.notes }}</span>{% endif %}
-      {%- if row.p.done_at %}<br><span class="small">done {{ row.p.done_at[11:16] }}</span>{% endif %}
-      {%- else %}<span class="small"><i>Before the procedure</i></span>{% endif %}</td>
-    <td>{% for e in row.entries %}<div class="le"><span class="small">{{ e.time }}{% if e.tplus %} · T+{{ e.tplus }}{% endif %}</span> {{ e.text }}{% if e.value %} <b>{{ e.value }} {{ e.unit or '' }}</b>{% endif %}</div>{% endfor %}</td>
-  </tr>
-  {%- endfor %}
-  </tbody>
-</table>
-{%- elif st.log %}
-<{{ h }}>Log</{{ h }}>
-<table>
-  <thead><tr><th>Time</th><th class="num">T+</th><th>Entry</th></tr></thead>
-  <tbody>
-  {%- for e in st.log %}
-  <tr><td class="small" style="white-space:nowrap">{{ e.time }}</td><td class="num small">{{ e.tplus }}</td>
-    <td>{{ e.text }}{% if e.value %} <b>{{ e.value }} {{ e.unit or '' }}</b>{% endif %}</td></tr>
-  {%- endfor %}
-  </tbody>
-</table>
-{%- endif %}
-{%- if st.products %}<{{ h }}>Yield</{{ h }}>{{ yield_table(st) }}{% endif %}
 {%- endmacro %}
 
 <div class="meta">
@@ -107,25 +75,33 @@
 {%- if c.sections.objective %}<{{ H }}>{{ c.headings.objective }}</{{ H }}><div class="prose">{{ c.sections.objective | md | safe }}</div>{% endif %}
 
 {%- if not c.scheme.empty %}
-<{{ H }}>{{ 'Overall reaction' if c.multi else 'Reaction' }}</{{ H }}>
+<{{ H }}>Reaction</{{ H }}>
 <div class="scheme-box">{{ c.scheme_html | safe }}</div>{%- endif %}
 
-{%- if c.multi %}
-  {%- for st in c.steps %}
-  <div class="step-chapter">
-  <{{ H }}>Step {{ st.n }}{% if st.s.title %}: {{ st.s.title }}{% endif %}</{{ H }}>
-  {%- if st.s.notes %}<div class="prose">{{ st.s.notes | md | safe }}</div>{% endif %}
-  {%- if st.scheme_html %}<div class="scheme-box">{{ st.scheme_html | safe }}</div>{% endif %}
-  {%- if not st.scheme_html and (st.conditions or st.s.atmosphere) %}<p class="conditions">Conditions: {{ [st.s.atmosphere, st.conditions] | select | join(', ') }}</p>{% endif %}
-  {{ step_body(st, H2) }}
-  </div>
+{%- if c.inputs %}<{{ H }}>Reagents</{{ H }}>{{ reagent_table() }}{% endif %}
+
+{%- if c.phase_groups %}
+<{{ H }}>Procedure and log</{{ H }}>
+<table class="proclog">
+  <thead><tr><th class="pl-p">Procedure</th><th>Log</th></tr></thead>
+  <tbody>
+  {%- for grp in c.phase_groups %}
+  <tr class="phase-row"><td colspan="2">{{ grp.label }}</td></tr>
+  {%- for row in grp.rows %}
+  <tr>
+    <td class="pl-p">{% if row.p %}<b>{{ row.p.n }}.</b> {{ row.p.html | safe }}
+      {%- if row.p.notes %}<br><span class="note">Note: {{ row.p.notes }}</span>{% endif %}
+      {%- if row.p.done_at %}<br><span class="small">done {{ row.p.done_at[11:16] }}</span>{% endif %}
+      {%- else %}<span class="small"><i>Before the procedure</i></span>{% endif %}</td>
+    <td>{% for e in row.entries %}<div class="le"><span class="small">{{ e.time }}{% if e.tplus %} · T+{{ e.tplus }}{% endif %}</span> {{ e.text }}{% if e.value %} <b>{{ e.value }} {{ e.unit or '' }}</b>{% endif %}</div>{% endfor %}</td>
+  </tr>
   {%- endfor %}
-  {%- if c.overall_yield is not none %}<p><strong>Overall yield:</strong> {{ '%.1f' % c.overall_yield }}% over {{ c.steps | length }} steps</p>{% endif %}
-{%- else %}
-  {%- set st = c.steps[0] %}
-  {%- if st.inputs %}<{{ H }}>Reagents</{{ H }}>{% endif %}
-  {{ step_body(st, H) }}
+  {%- endfor %}
+  </tbody>
+</table>
 {%- endif %}
+
+{%- if c.products %}<{{ H }}>Yield</{{ H }}>{{ yield_table() }}{% endif %}
 
 {%- if c.sections.results %}<{{ H }}>{{ c.headings.results }}</{{ H }}><div class="prose">{{ c.sections.results | md | safe }}</div>{% endif %}
 {%- if c.sections.discussion %}<{{ H }}>{{ c.headings.discussion }}</{{ H }}><div class="prose">{{ c.sections.discussion | md | safe }}</div>{% endif %}

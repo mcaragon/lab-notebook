@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, actions, db, hazards, report, scheme, sequences, stoich, structures
+from . import __version__, actions, db, hazards, projects, report, scheme, stoich, structures
 from .config import Settings, load_settings
 from .pubchem import PubChemClient, PubChemUnavailable, summary_to_reagent
 
@@ -19,6 +19,11 @@ STATIC = Path(__file__).parent / "static"
 
 
 # ------------------------------------------------------------------------------------------- request models
+class PhaseIn(BaseModel):
+    key: str
+    label: Optional[str] = None
+
+
 class ExperimentIn(BaseModel):
     title: Optional[str] = None
     date: Optional[str] = None
@@ -30,6 +35,7 @@ class ExperimentIn(BaseModel):
     results: Optional[str] = None
     discussion: Optional[str] = None
     conclusion: Optional[str] = None
+    phases: Optional[list[PhaseIn]] = None  # the experiment's phases in order (defaults and its own)
 
 
 class StepIn(BaseModel):
@@ -92,6 +98,7 @@ class ReagentIn(BaseModel):
 class ProcedureIn(BaseModel):
     text: Optional[str] = None
     notes: Optional[str] = None
+    phase: Optional[str] = None
     step_id: Optional[int] = None
     done: Optional[bool] = None
 
@@ -128,15 +135,21 @@ class RefIn(BaseModel):
     text: Optional[str] = None
 
 
-class SequenceIn(BaseModel):
+class ProjectIn(BaseModel):
     title: Optional[str] = None
     notes: Optional[str] = None
     scheme_style: Optional[Literal["auto", "inline", "lettered"]] = None
     experiment_ids: Optional[list[int]] = None  # create only
 
 
-class SequenceAdd(BaseModel):
+class ProjectAdd(BaseModel):
     experiment_id: int
+
+
+class BranchIn(BaseModel):
+    title: Optional[str] = None
+    mass_g: Optional[float] = None       # portion of the product to take (default: what is left)
+    project_id: Optional[int] = None     # project to add the new experiment to (default: the product's projects)
 
 
 class RefreshIn(BaseModel):
@@ -223,11 +236,44 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             r["usage"] = use.get(r["id"], {})
         for p in b["procedure"]:
             p["html"] = scheme.render_mentions(p.get("text") or "", b["reagents"], calc["rows"], mode="html")
-        b["stoich"] = {"steps": calc["steps"], "overall_yield": calc["overall_yield"]}
+        b["stoich"] = {k: calc[k] for k in ("reference_id", "reference_mmol", "limiting_id", "yield")}
         b["scheme_html"] = report.scheme_html(b, calc, lambda r, w, h: _struct_url(r, w, h))
         b["server_time"] = db.now()
-        b["sequences"] = store.sequences_of(exp_id)
+        b["phases"] = db.phase_list(b["experiment"])
+        b["projects"] = store.projects_of(exp_id)
+        b["route"] = route_links(b, calc)
         return b
+
+    def route_links(b: dict, calc: dict) -> dict:
+        """Where this experiment's starting materials came from and where its product went."""
+        own = {r["id"] for r in b["reagents"]}
+        sources = []
+        for r in b["reagents"]:
+            src = r.get("source_reagent_id")
+            if src and src not in own:
+                p = store.get("reagents", src)
+                e = store.get_experiment(p["experiment_id"]) if p else None
+                sources.append({"reagent_id": r["id"], "product_id": src, "name": scheme.label(r),
+                                "experiment_id": e["id"] if e else None, "experiment": e["title"] if e else None,
+                                "taken_g": projects.taken_g(r, calc["rows"].get(r["id"], {})), "missing": not p})
+        prods = [r for r in b["reagents"] if r.get("role") == "product"]
+        uses = []
+        for u in store.uses_of([p["id"] for p in prods]):
+            if u["experiment_id"] == b["experiment"]["id"]:
+                continue
+            amount = u.get("actual_value") if u.get("actual_basis") == "mass" else \
+                u.get("basis_value") if u.get("basis") == "mass" else None
+            uses.append({"experiment_id": u["experiment_id"], "experiment": u["experiment"],
+                         "status": u["experiment_status"], "product_id": u["source_reagent_id"], "taken_g": amount})
+        products = []
+        for p in prods:
+            c = calc["rows"].get(p["id"], {})
+            used = [u["taken_g"] for u in uses if u["product_id"] == p["id"] and u["taken_g"] is not None]
+            iso = c.get("isolated_mass_g")
+            products.append({"id": p["id"], "name": scheme.label(p), "isolated_g": iso,
+                             "used_g": sum(used) if used else None,
+                             "remaining_g": (iso - sum(used)) if iso is not None else None})
+        return {"sources": sources, "uses": uses, "products": products}
 
     def _struct_url(r: dict, w: int, h: int) -> Optional[str]:
         if not r.get("cid") and not r.get("smiles"):
@@ -289,8 +335,36 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     @app.put("/api/experiments/{exp_id}")
     def update_experiment(exp_id: int, body: ExperimentIn):
         need_exp(exp_id)
-        store.update_experiment(exp_id, body.model_dump(exclude_unset=True))
+        data = body.model_dump(exclude_unset=True)
+        if "phases" in data:
+            data["phases"] = clean_phases(data["phases"] or [])
+            keys = {p["key"] for p in data["phases"]}
+            with store.conn() as c:  # rows of a removed phase go back to the reaction
+                for p in c.execute("SELECT id, phase FROM procedure WHERE experiment_id = ?", (exp_id,)).fetchall():
+                    if p["phase"] not in keys:
+                        c.execute("UPDATE procedure SET phase = ? WHERE id = ?", (db.DEFAULT_PHASE, p["id"]))
+            store.update_experiment(exp_id, data)
+            return detail(exp_id)
+        store.update_experiment(exp_id, data)
         return {"experiment": store.get_experiment(exp_id)}
+
+    def clean_phases(items: list[dict]) -> list[dict]:
+        """Validated phase list: the default phases keep their names and relative order; own phases need a name."""
+        defaults = dict(db.PHASES)
+        out, seen = [], set()
+        for p in items:
+            key = re.sub(r"[^a-z0-9_-]", "", str(p.get("key") or "").lower())[:40]
+            if not key or key in seen:
+                continue
+            label = defaults.get(key) or (p.get("label") or "").strip()[:60]
+            if not label:
+                continue
+            seen.add(key)
+            out.append({"key": key, "label": label})
+        order = [p["key"] for p in out if p["key"] in defaults]
+        if order != [k for k, _ in db.PHASES if k in order]:
+            raise HTTPException(422, "The standard phases keep their order")
+        return [{"key": p["key"], "label": p["label"]} for p in db.phase_list({"phases": out})]
 
     @app.delete("/api/experiments/{exp_id}", status_code=204)
     def delete_experiment(exp_id: int):
@@ -333,17 +407,12 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         store.update_experiment(exp_id, {"started_at": None, "ended_at": None})
         return detail(exp_id)
 
-    # -------------------------------------------------------------- steps and conditions
+    # -------------------------------------------------------------- stages (one-pot) and conditions
+    # The table and routes are called "steps"; in the app they are the numbered stages of a one-pot reaction.
     @app.post("/api/experiments/{exp_id}/steps", status_code=201)
     def add_step(exp_id: int, body: StepIn):
         need_exp(exp_id)
-        prev = store.list("steps", "experiment_id = ?", (exp_id,))
         sid = store.insert("steps", body.model_dump(exclude_unset=True), experiment_id=exp_id)
-        # The previous step's product becomes this step's starting material
-        if prev:
-            products = [r for r in store.list("reagents", "step_id = ?", (prev[-1]["id"],)) if r["role"] == "product"]
-            if products:
-                _carry(exp_id, sid, products[0])
         store.touch(exp_id)
         out = detail(exp_id)
         out["step_id"] = sid
@@ -357,12 +426,28 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             return {}
         return {"extra_hazards": extra} if extra else {}
 
-    def _carry(exp_id: int, step_id: int, product: dict) -> int:
-        """Add a product of an earlier step as a reactant of ``step_id``, with its isolated mass as the amount."""
+    def remaining_of(product: dict) -> Optional[float]:
+        """Isolated (else crude) mass of a product minus what other experiments took (planned or measured)."""
+        mass = product.get("actual_mass_g") or product.get("crude_mass_g")
+        if mass is None:
+            return None
+        for u in store.uses_of([product["id"]]):
+            amount = u.get("actual_value") if u.get("actual_basis") == "mass" else \
+                u.get("basis_value") if u.get("basis") == "mass" else None
+            mass -= amount or 0
+        return mass
+
+    def _carry(exp_id: int, step_id: int, product: dict, mass: Optional[float] = None) -> int:
+        """Add a portion of a product (of another experiment) as a starting material of ``exp_id``.
+
+        The amount is ``mass`` or else what is left of the product."""
         data = {k: product.get(k) for k in ["cid", "pubchem_url", *db.CHEM_FIELDS, "pictograms", "hazard_statements",
                                             "sources", "label", "extra_hazards", "hazard_notes"]}
-        mass = product.get("actual_mass_g") or product.get("crude_mass_g")
-        data.update(step_id=step_id, role="reactant", source_reagent_id=product["id"], is_reference=True,
+        if mass is None:
+            left = remaining_of(product)
+            mass = round(left, 4) if left is not None and left > 0 else None
+        has_ref = any(r.get("is_reference") for r in store.list("reagents", "experiment_id = ?", (exp_id,)))
+        data.update(step_id=step_id, role="reactant", source_reagent_id=product["id"], is_reference=not has_ref,
                     basis="mass" if mass else None, basis_value=mass)
         return store.add_reagent(exp_id, data)
 
@@ -377,7 +462,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def delete_step(sid: int):
         s = need("steps", sid, "Step")
         if len(store.list("steps", "experiment_id = ?", (s["experiment_id"],))) <= 1:
-            raise HTTPException(400, "An experiment needs at least one step")
+            raise HTTPException(400, "An experiment needs at least one stage")
         store.delete("steps", sid)
         store.touch(s["experiment_id"])
         return detail(s["experiment_id"])
@@ -414,7 +499,10 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             data["step_id"] = steps[0]["id"]
         if data.get("source_reagent_id"):
             src = need("reagents", data["source_reagent_id"], "Reagent")
-            rid = _carry(exp_id, data["step_id"], src)
+            if src["experiment_id"] == exp_id or src["role"] != "product":
+                raise HTTPException(400, "A starting material can only come from the product of another experiment")
+            rid = _carry(exp_id, data["step_id"], src,
+                         data.get("basis_value") if data.get("basis") == "mass" else None)
             if data.get("role"):
                 store.update_reagent(rid, {"role": data["role"]})
             out = detail(exp_id)
@@ -542,10 +630,12 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     # -------------------------------------------------------------- procedure
     @app.post("/api/experiments/{exp_id}/procedure", status_code=201)
     def add_procedure(exp_id: int, body: ProcedureIn):
-        need_exp(exp_id)
+        exp = need_exp(exp_id)
         data = body.model_dump(exclude_unset=True)
         data.pop("done", None)
         data.setdefault("text", "")
+        if data.get("phase") not in {p["key"] for p in db.phase_list(exp)}:
+            data["phase"] = db.DEFAULT_PHASE
         store.insert("procedure", data, experiment_id=exp_id)
         store.touch(exp_id)
         return detail(exp_id)
@@ -556,11 +646,13 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         data = body.model_dump(exclude_unset=True)
         done = data.pop("done", None)
         exp_id = p["experiment_id"]
+        if "phase" in data and data["phase"] not in {x["key"] for x in db.phase_list(need_exp(exp_id))}:
+            raise HTTPException(422, f"Unknown phase {data['phase']!r}")
         if done is not None and bool(p.get("done_at")) != done:
             if done:
                 ts = db.now()
                 data["done_at"] = ts
-                rows = store.list("procedure", "experiment_id = ?", (exp_id,))
+                rows = store.ordered_procedure(exp_id)
                 n = next(i for i, x in enumerate(rows, 1) if x["id"] == pid)
                 log(exp_id, "procedure", {"procedure_id": pid}, text=f"Procedure step {n} completed", ts=ts,
                     procedure_id=pid)
@@ -712,147 +804,165 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             c.execute("UPDATE reagents SET expected_ref_id = NULL WHERE expected_ref_id = ?", (rid,))
         return detail(r["experiment_id"])
 
-    # -------------------------------------------------------------- sequences
-    def need_seq(seq_id: int) -> dict:
-        seq = store.get_sequence(seq_id)
-        if not seq:
-            raise HTTPException(404, "Sequence not found")
-        return seq
+    # -------------------------------------------------------------- projects
+    def need_project(project_id: int) -> dict:
+        proj = store.get_project(project_id)
+        if not proj:
+            raise HTTPException(404, "Project not found")
+        return proj
 
-    def seq_bundles(seq: dict) -> list[dict]:
-        return [b for b in (store.bundle(eid) for eid in seq["experiment_ids"]) if b]
+    def project_parts(proj: dict) -> tuple[list[dict], list[dict], dict]:
+        bundles = [b for b in (store.bundle(eid) for eid in proj["experiment_ids"]) if b]
+        calcs = [compute(b) for b in bundles]
+        return bundles, calcs, projects.graph(bundles, calcs)
 
-    def seq_detail(seq_id: int) -> dict:
-        seq = need_seq(seq_id)
-        bundles = seq_bundles(seq)
-        combined, calc = sequences.compute(bundles)
-        rows = sequences.summary(bundles, calc)
-        # experiments after the first should start from the previous experiment's product
-        links = []
-        for i, b in enumerate(bundles):
-            if i == 0 or not b["steps"]:
-                links.append(None)
-                continue
-            first = b["steps"][0]["id"]
-            prev_ids = {r["id"] for r in bundles[i - 1]["reagents"] if r.get("role") == "product"}
-            linked = any(r.get("source_reagent_id") in prev_ids for r in combined["reagents"]
-                         if r.get("step_id") == first and r.get("role") == "reactant")
-            links.append(linked)
-        sch_bundle = dict(combined, experiment={"scheme_style": seq.get("scheme_style")})
+    def project_detail(project_id: int) -> dict:
+        proj = need_project(project_id)
+        bundles, calcs, g = project_parts(proj)
+        numbers = report.project_numbers(g, bundles, calcs)[0]
+        img = lambda r, w, h: _struct_url(r, w, h)  # noqa: E731
+        rows = projects.summary_rows(g)
+        final = [n for n in projects.leaves(g) if next(x for x in g["nodes"] if x["id"] == n)["parents"]]
         return {
-            "sequence": {k: seq[k] for k in ("id", "title", "notes", "scheme_style", "created_at", "updated_at")},
-            "experiments": [{**{k: b["experiment"].get(k) for k in ("id", "title", "date", "status", "author")},
-                             "n_steps": len(b["steps"]), "linked": links[i]} for i, b in enumerate(bundles)],
-            "summary": [{"n": r["n"], "experiment_id": r["experiment"]["id"], "experiment": r["experiment"]["title"],
-                         "date": r["experiment"].get("date"), "step_in_exp": r["step_in_exp"],
-                         "n_steps_exp": r["n_steps_exp"], "product": r["product"]["name"] if r["product"] else None,
-                         "isolated_mass_g": r["isolated_mass_g"], "yield": r["yield"]} for r in rows],
-            "overall_yield": sequences.overall_yield(rows),
-            "scheme_html": report.scheme_html(sch_bundle, calc, lambda r, w, h: _struct_url(r, w, h)),
+            "project": {k: proj[k] for k in ("id", "title", "notes", "scheme_style", "created_at", "updated_at")},
+            "experiments": [{**{k: b["experiment"].get(k) for k in ("id", "title", "date", "status", "author")}}
+                            for b in bundles],
+            "summary": [{k: r[k] for k in ("n", "id", "title", "date", "status", "col", "yield", "isolated_g", "used_g",
+                                           "remaining_g", "overall_yield", "lls", "from", "children")}
+                        | {"product": scheme.label(r["product"]) if r["product"] else None,
+                           "product_id": r["product"]["id"] if r["product"] else None,
+                           "number": numbers.get(r["product"]["id"]) if r["product"] else None} for r in rows],
+            "final": [{"id": n, "title": next(x for x in g["nodes"] if x["id"] == n)["title"]} for n in final],
+            "map_svg": projects.route_svg(g, img, numbers),
+            "branches": any(len(x["children"]) > 1 for x in g["nodes"]),
         }
 
-    @app.get("/api/sequences")
-    def list_sequences():
-        return {"sequences": store.list_sequences()}
+    @app.get("/api/projects")
+    def list_projects():
+        return {"projects": store.list_projects()}
 
-    @app.post("/api/sequences", status_code=201)
-    def create_sequence(body: SequenceIn):
+    @app.post("/api/projects", status_code=201)
+    def create_project(body: ProjectIn):
         data = body.model_dump(exclude_unset=True)
         ids = data.pop("experiment_ids", None) or []
         for eid in ids:
             need_exp(eid)
-        return seq_detail(store.create_sequence(data, ids))
+        return project_detail(store.create_project(data, ids))
 
-    @app.get("/api/sequences/{seq_id}")
-    def get_sequence(seq_id: int):
-        return seq_detail(seq_id)
+    @app.get("/api/projects/{project_id}")
+    def get_project(project_id: int):
+        return project_detail(project_id)
 
-    @app.put("/api/sequences/{seq_id}")
-    def update_sequence(seq_id: int, body: SequenceIn):
-        need_seq(seq_id)
+    @app.put("/api/projects/{project_id}")
+    def update_project(project_id: int, body: ProjectIn):
+        need_project(project_id)
         data = body.model_dump(exclude_unset=True)
         data.pop("experiment_ids", None)
-        store.update_sequence(seq_id, data)
-        return seq_detail(seq_id)
+        store.update_project(project_id, data)
+        return project_detail(project_id)
 
-    @app.delete("/api/sequences/{seq_id}", status_code=204)
-    def delete_sequence(seq_id: int):
-        need_seq(seq_id)
-        store.delete("sequences", seq_id)
+    @app.delete("/api/projects/{project_id}", status_code=204)
+    def delete_project(project_id: int):
+        need_project(project_id)
+        store.delete("projects", project_id)
         return Response(status_code=204)
 
-    @app.post("/api/sequences/{seq_id}/experiments")
-    def add_to_sequence(seq_id: int, body: SequenceAdd):
-        need_seq(seq_id)
+    @app.post("/api/projects/{project_id}/experiments")
+    def add_to_project(project_id: int, body: ProjectAdd):
+        need_project(project_id)
         need_exp(body.experiment_id)
-        store.add_to_sequence(seq_id, body.experiment_id)
-        return seq_detail(seq_id)
+        store.add_to_project(project_id, body.experiment_id)
+        return project_detail(project_id)
 
-    @app.delete("/api/sequences/{seq_id}/experiments/{exp_id}")
-    def remove_from_sequence(seq_id: int, exp_id: int):
-        need_seq(seq_id)
-        store.remove_from_sequence(seq_id, exp_id)
-        return seq_detail(seq_id)
+    @app.delete("/api/projects/{project_id}/experiments/{exp_id}")
+    def remove_from_project(project_id: int, exp_id: int):
+        need_project(project_id)
+        store.remove_from_project(project_id, exp_id)
+        return project_detail(project_id)
 
-    @app.put("/api/sequences/{seq_id}/order")
-    def order_sequence(seq_id: int, ids: list[int]):
-        need_seq(seq_id)
-        store.order_sequence(seq_id, ids)
-        return seq_detail(seq_id)
-
-    @app.post("/api/sequences/{seq_id}/next", status_code=201)
-    def next_experiment(seq_id: int, body: ExperimentIn):
-        """New experiment for the next step, starting from the last product of the sequence."""
-        seq = need_seq(seq_id)
+    @app.post("/api/projects/{project_id}/new", status_code=201)
+    def new_in_project(project_id: int, body: ExperimentIn):
+        """A new experiment in the project, not yet linked (the start of a route or a separate branch)."""
+        need_project(project_id)
         data = body.model_dump(exclude_unset=True)
-        n = len(seq["experiment_ids"]) + 1
-        data.setdefault("title", f"{seq['title']}: step {n}")
+        data.pop("phases", None)
         if not data.get("author") and settings.author:
             data["author"] = settings.author
         eid = store.create_experiment(data)
-        store.add_to_sequence(seq_id, eid)
-        products = []
-        for prev in reversed(seq["experiment_ids"]):
-            b = store.bundle(prev)
-            if b and b["steps"]:
-                last = b["steps"][-1]["id"]
-                products = [r for r in b["reagents"] if r.get("step_id") == last and r.get("role") == "product"]
-                if products:
-                    break
-        if products:
-            _carry(eid, store.list("steps", "experiment_id = ?", (eid,))[0]["id"], products[0])
-        out = seq_detail(seq_id)
+        store.add_to_project(project_id, eid)
+        out = project_detail(project_id)
         out["experiment_id"] = eid
         return out
 
-    def _seq_ctx(seq_id: int, embed: bool) -> dict:
-        seq = need_seq(seq_id)
-        bundles = seq_bundles(seq)
-        calcs = [compute(b) for b in bundles]
-        return report.build_sequence_context(seq, bundles, calcs, settings, client if embed else None)
+    @app.post("/api/reagents/{rid}/branch", status_code=201)
+    def branch(rid: int, body: BranchIn):
+        """New experiment that starts from a portion of this product, in the product's projects (or a new one)."""
+        prod = need("reagents", rid, "Reagent")
+        if prod["role"] != "product":
+            raise HTTPException(400, "Only a product can start a branch")
+        parent = need_exp(prod["experiment_id"])
+        title = body.title or f"From {scheme.label(prod)}"
+        data = {"title": title}
+        if settings.author:
+            data["author"] = settings.author
+        eid = store.create_experiment(data)
+        stage = store.list("steps", "experiment_id = ?", (eid,))[0]["id"]
+        _carry(eid, stage, prod, body.mass_g)
+        if body.project_id:
+            need_project(body.project_id)
+            pids = [body.project_id]
+        else:
+            pids = [p["id"] for p in store.projects_of(parent["id"])]
+        if not pids:
+            pids = [store.create_project({"title": f"Route from {scheme.label(prod)}"}, [parent["id"]])]
+        for pid in pids:
+            if parent["id"] not in store.get_project(pid)["experiment_ids"]:
+                store.add_to_project(pid, parent["id"])
+            store.add_to_project(pid, eid)
+        out = detail(eid)
+        out["project_ids"] = pids
+        return out
 
-    @app.get("/api/sequences/{seq_id}/report.md", response_class=PlainTextResponse)
-    def sequence_md(seq_id: int, download: bool = False):
-        ctx = _seq_ctx(seq_id, embed=False)
-        headers = ({"Content-Disposition": f'attachment; filename="{_slug(ctx["seq"]["title"])}.md"'}
-                   if download else {})
-        return PlainTextResponse(report.sequence_markdown(ctx), media_type="text/markdown; charset=utf-8",
+    @app.get("/api/products")
+    def search_products(q: str = "", exclude: Optional[int] = None, limit: int = Query(12, ge=1, le=50)):
+        """Products of experiments, to use as a starting material (a link between experiments)."""
+        out = []
+        for p in store.products(q, exclude, limit):
+            left = remaining_of(store.get("reagents", p["id"]))
+            out.append({**p, "remaining_g": left})
+        return {"products": out}
+
+    def _project_ctx(project_id: int, embed: bool, leaf: Optional[int]) -> dict:
+        proj = need_project(project_id)
+        bundles, calcs, g = project_parts(proj)
+        if leaf is not None and leaf not in proj["experiment_ids"]:
+            raise HTTPException(404, "That experiment is not in this project")
+        return report.build_project_context(proj, bundles, calcs, g, settings, client if embed else None, leaf)
+
+    def _project_name(ctx: dict) -> str:
+        return _slug(ctx["title"])
+
+    @app.get("/api/projects/{project_id}/report.md", response_class=PlainTextResponse)
+    def project_md(project_id: int, download: bool = False, leaf: Optional[int] = None):
+        ctx = _project_ctx(project_id, False, leaf)
+        headers = ({"Content-Disposition": f'attachment; filename="{_project_name(ctx)}.md"'} if download else {})
+        return PlainTextResponse(report.project_markdown(ctx), media_type="text/markdown; charset=utf-8",
                                  headers=headers)
 
-    @app.get("/api/sequences/{seq_id}/report.html", response_class=HTMLResponse)
-    def sequence_report_html(seq_id: int):
-        return HTMLResponse(report.sequence_html(_seq_ctx(seq_id, embed=True)))
+    @app.get("/api/projects/{project_id}/report.html", response_class=HTMLResponse)
+    def project_report_html(project_id: int, leaf: Optional[int] = None):
+        return HTMLResponse(report.project_html(_project_ctx(project_id, True, leaf)))
 
-    @app.get("/api/sequences/{seq_id}/report.pdf")
-    def sequence_pdf(seq_id: int, download: bool = True):
-        ctx = _seq_ctx(seq_id, embed=True)
+    @app.get("/api/projects/{project_id}/report.pdf")
+    def project_pdf(project_id: int, download: bool = True, leaf: Optional[int] = None):
+        ctx = _project_ctx(project_id, True, leaf)
         try:
-            pdf = report.to_pdf(report.sequence_html(ctx, for_pdf=True))
+            pdf = report.to_pdf(report.project_html(ctx, for_pdf=True))
         except (ImportError, OSError) as e:
             raise HTTPException(501, f"PDF export is not available on this system: {e}")
         disp = "attachment" if download else "inline"
         return Response(pdf, media_type="application/pdf",
-                        headers={"Content-Disposition": f'{disp}; filename="{_slug(ctx["seq"]["title"])}.pdf"'})
+                        headers={"Content-Disposition": f'{disp}; filename="{_project_name(ctx)}.pdf"'})
 
     # -------------------------------------------------------------- PubChem Local proxy
     def _pc(fn, *args):

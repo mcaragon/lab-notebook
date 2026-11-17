@@ -1,7 +1,8 @@
-/* Reagents section: one block per step, grouped by role. Planned and actual amounts, properties and hazards are on
-   each row; the expandable detail panel edits chemical data, solution form, provenance and scheme placement. */
+/* Reagents section, grouped by role (and by stage for a one-pot reaction in several stages). Planned and actual
+   amounts, properties and hazards are on each row; the expandable detail panel edits chemical data, solution form,
+   provenance and scheme placement. A starting material can be a portion of another experiment's product. */
 import { $, $$, api, autocomplete, esc, fmt, fixed, ghsImg, hCode, hText, nfpaDiamond, parseNum, preserveFocus, toast } from "./util.js";
-import { state, mutate, expId, multiStep, labelOf } from "./state.js";
+import { state, mutate, expId, multiStage } from "./state.js";
 
 const GROUPS = [
   { key: "reactant", roles: ["reactant"], title: "Starting materials", add: "reactant",
@@ -33,21 +34,29 @@ function draw(root) {
     <div class="row sec-head"><h2>Reagents</h2><span class="spacer"></span>
       <span class="hint">Type an amount in any planned column; the rest is calculated. <b>Bold</b> = entered.
       Actual = what you weighed or measured; yields use it.</span></div>
-    ${d.steps.map((s, i) => stepBlock(s, i)).join("")}
+    ${d.steps.map((s, i) => stageBlock(s, i)).join("")}
+    ${multiStage() ? `<div class="step-block">${GROUPS.filter((g) => !STAGED.has(g.key)).map((g) =>
+      groupBlock(lastStage(), g, d.reagents.filter((r) => g.roles.includes(r.role)), d.stoich)).join("")}</div>` : ""}
   </div>`;
   bind(root);
 }
 
-function stepBlock(s, i) {
-  const rs = state.data.reagents.filter((r) => r.step_id === s.id);
-  const st = state.data.stoich.steps[s.id] || {};
-  return `<div class="step-block" data-step="${s.id}">
-    ${multiStep() ? `<h3 class="step-h">Step ${i + 1}${s.title ? `: ${esc(s.title)}` : ""}</h3>` : ""}
-    ${GROUPS.map((g) => groupBlock(s, i, g, rs.filter((r) => g.roles.includes(r.role)), st)).join("")}
+// With several one-pot stages, starting materials, reagents and solvents are listed per stage; workup materials and
+// products once for the reaction.
+const STAGED = new Set(["reactant", "reagent", "solvent"]);
+const lastStage = () => state.data.steps[state.data.steps.length - 1];
+
+function stageBlock(s, i) {
+  const multi = multiStage();
+  const ids = new Set(state.data.steps.map((x) => x.id));
+  const rs = state.data.reagents.filter((r) => r.step_id === s.id || (i === 0 && !ids.has(r.step_id)));
+  return `<div class="step-block ${multi ? "staged" : ""}" data-step="${s.id}">
+    ${multi ? `<h3 class="step-h"><span class="stage-no">${i + 1}</span>Stage ${i + 1}${s.title ? `: ${esc(s.title)}` : ""}</h3>` : ""}
+    ${GROUPS.filter((g) => !multi || STAGED.has(g.key)).map((g) => groupBlock(s, g, rs.filter((r) => g.roles.includes(r.role)), state.data.stoich)).join("")}
   </div>`;
 }
 
-function groupBlock(s, i, g, rows, st) {
+function groupBlock(s, g, rows, st) {
   const isProd = g.key === "product";
   const head = isProd
     ? `<div class="rg-head prod"><span></span><span>Compound</span><span class="num">MW</span><span class="num">Coef.</span>
@@ -61,7 +70,8 @@ function groupBlock(s, i, g, rows, st) {
     ${rows.length ? head + rows.map((r) => (isProd ? productRow(r, st) : inputRow(r, st))).join("") : ""}
     <div class="add-row"><input class="add-q" data-step="${s.id}" data-role="${g.add}" data-key="add-${s.id}-${g.key}"
       placeholder="${isProd ? "Add product" : g.key === "solvent" ? "Add solvent (e.g. THF)" : g.key === "workup"
-        ? "Add (e.g. sat. NH4Cl, MgSO4, DCM)" : "Add: name, CAS, formula, SMILES, or e.g. 2.5 M n-BuLi in hexanes"}"
+        ? "Add (e.g. sat. NH4Cl, MgSO4, DCM)" : g.key === "reactant" ? "Add: name, CAS, formula, SMILES, or the product of another experiment"
+        : "Add: name, CAS, formula, SMILES, or e.g. 2.5 M n-BuLi in hexanes"}"
       autocomplete="off" aria-label="Add to ${g.title}"></div>
   </div>`;
 }
@@ -86,13 +96,21 @@ function compoundCell(r, st) {
     ${form ? `<span class="badge">${esc(form)}</span>` : ""}
     ${c.is_limiting ? '<span class="badge lim">limiting</span>' : ""}
     ${isRef && r.role !== "product" && !["solvent", "workup"].includes(r.role) ? '<span class="badge ref" title="Equivalents are relative to this reagent">1 equiv ref.</span>' : ""}
-    ${r.source_reagent_id ? '<span class="badge" title="Product of the previous step">from previous step</span>' : ""}
+    ${sourceBadge(r)}
     <div class="sub">${sub}</div>
     ${prov ? `<div class="sub">${esc(prov)}</div>` : ""}
     ${r.notes ? `<div class="sub note">${esc(r.notes)}</div>` : ""}
     ${Object.keys(r.usage || {}).length && ["solvent", "workup"].includes(r.role) ? `<div class="sub">Used (log): ${Object.entries(r.usage).map(([u, v]) => `${fmt(v)} ${u}`).join(", ")}</div>` : ""}
     ${(c.warnings || []).length ? `<div class="warnings">⚠ ${c.warnings.map(esc).join(" ")}</div>` : ""}
   </div>`;
+}
+
+function sourceBadge(r) {
+  if (!r.source_reagent_id) return "";
+  const s = (state.data.route?.sources || []).find((x) => x.reagent_id === r.id);
+  if (!s) return "";
+  if (s.missing) return '<span class="badge alert" title="The experiment this came from was deleted">source deleted</span>';
+  return `<a class="badge link" href="#/exp/${s.experiment_id}/results" title="A portion of the product of “${esc(s.experiment)}”">from ${esc(s.experiment)}</a>`;
 }
 
 function amountInput(r, field, value, digits, st) {
@@ -346,15 +364,16 @@ function setupAdd(input) {
   const stepId = Number(input.dataset.step);
   const role = input.dataset.role;
   let chosen = null;
-  const carrySources = () => {
-    // products of earlier steps can be used as starting materials
-    const idx = state.data.steps.findIndex((s) => s.id === stepId);
-    const earlier = new Set(state.data.steps.slice(0, idx).map((s) => s.id));
-    return state.data.reagents.filter((r) => r.role === "product" && earlier.has(r.step_id));
-  };
   const ac = autocomplete(input, async (q) => {
-    const local = role === "reactant" ? carrySources().filter((r) => labelOf(r).toLowerCase().includes(q.toLowerCase()))
-      .map((r) => ({ label: r.name, sub: "product of an earlier step", carry: r.id })) : [];
+    // products of other experiments can be used as starting materials: that links the experiments
+    let local = [];
+    if (role === "reactant") {
+      try {
+        const { products } = await api("GET", `/api/products?q=${encodeURIComponent(q)}&exclude=${expId()}&limit=5`);
+        local = products.map((p) => ({ label: p.label || p.name, carry: p.id,
+          sub: `product of ${p.experiment}${p.remaining_g != null ? ` · ${fmt(p.remaining_g)} g left` : ""}` }));
+      } catch { /* ignore */ }
+    }
     let remote = [];
     try {
       const res = await api("GET", `/api/pubchem/autocomplete?q=${encodeURIComponent(q)}&limit=8`);
