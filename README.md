@@ -27,11 +27,26 @@ Single user, no login. Intended for your LAN; the layout works on tablets and ph
    wget -O /boot/config/plugins/dockerMan/templates-user/my-lab-notebook.xml https://raw.githubusercontent.com/mcaragon/lab-notebook/main/unraid/lab-notebook.xml
    ```
 3. Docker → Add Container → pick **lab-notebook** from the template list.
-4. Set **PubChem Local URL**:
-   - `http://<unraid-ip>:55055` (Unraid IP + PubChem Local's host port), or
-   - `http://pubchem-local:8080` if both containers are on the same custom Docker network (container name +
-     container port).
-5. Open the Web UI (default host port 55056). The header shows whether PubChem Local is reachable.
+4. Set **PubChem Local URL** to match how the two containers are networked (see below).
+5. Open the Web UI (default host port 55056). The header shows whether PubChem Local is reachable; hover over it to
+   see the error if it is not.
+
+### Connecting to PubChem Local
+
+| Network setup | PubChem Local URL |
+| --- | --- |
+| Both containers on Unraid's default `bridge` network (simplest) | `http://<unraid-ip>:55055` (Unraid IP + PubChem Local's **host** port) |
+| Both containers on the same **custom** network, e.g. one made with `docker network create chem` | `http://pubchem-local:8080` (container **name** + **container** port) |
+
+Container names like `pubchem-local` only resolve on a custom network, never on the default `bridge` network. Avoid
+setting PubChem Local's network type to *Container: lab-notebook*: that removes PubChem Local's own port mapping, so
+its web UI is no longer reachable on port 55055, and it breaks whenever lab-notebook is restarted or updated.
+
+To check the connection from the Unraid terminal:
+
+```bash
+docker exec lab-notebook python -c "import os, urllib.request; print(urllib.request.urlopen(os.environ['PUBCHEM_URL'] + '/api/health').read())"
+```
 
 Back up `/mnt/user/appdata/lab-notebook` (a single SQLite file, `notebook.sqlite`).
 
