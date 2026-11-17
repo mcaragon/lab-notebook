@@ -1,0 +1,556 @@
+{
+ "lookup:benzaldehyde": {
+  "cid": 240,
+  "name": "Benzaldehyde",
+  "iupac_name": "benzaldehyde",
+  "cas": "100-52-7",
+  "molecular_formula": "C7H6O",
+  "molecular_weight": 106.12,
+  "smiles": "O=Cc1ccccc1",
+  "boiling_point_c": 178.9,
+  "melting_point_c": -26.1,
+  "density_g_cm3": 1.046,
+  "flash_point_c": 63.7,
+  "refractive_index": null,
+  "signal_word": "Warning",
+  "pictograms": [
+   "GHS07"
+  ],
+  "hazard_statements": [
+   "H302: Harmful if swallowed [Warning Acute toxicity, oral]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/240"
+ },
+ "lookup:sodium borohydride": {
+  "cid": 4311764,
+  "name": "Sodium borohydride",
+  "iupac_name": "sodium boranuide",
+  "cas": "16940-66-2",
+  "molecular_formula": "BH4.Na",
+  "molecular_weight": 37.84,
+  "smiles": "[BH4-].[Na+]",
+  "boiling_point_c": null,
+  "melting_point_c": 400.0,
+  "density_g_cm3": 1.072,
+  "flash_point_c": null,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS02",
+   "GHS05",
+   "GHS06",
+   "GHS07",
+   "GHS08"
+  ],
+  "hazard_statements": [
+   "H260 (86.7%): In contact with water releases flammable gases which may ignite spontaneously [Danger Substances and mixtures which in contact with water, emit flammable gases]",
+   "H301 (99.6%): Toxic if swallowed [Danger Acute toxicity, oral]",
+   "H311 (23%): Toxic in contact with skin [Danger Acute toxicity, dermal]",
+   "H314 (99.6%): Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]",
+   "H318 (71.4%): Causes serious eye damage [Danger Serious eye damage/eye irritation]",
+   "H332 (16.7%): Harmful if inhaled [Warning Acute toxicity, inhalation]",
+   "H360 (43.7%): May damage fertility or the unborn child [Danger Reproductive toxicity]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/4311764"
+ },
+ "lookup:methanol": {
+  "cid": 887,
+  "name": "Methanol",
+  "iupac_name": "methanol",
+  "cas": "67-56-1",
+  "molecular_formula": "CH4O",
+  "molecular_weight": 32.042,
+  "smiles": "CO",
+  "boiling_point_c": 64.6,
+  "melting_point_c": -97.8,
+  "density_g_cm3": 0.7907,
+  "flash_point_c": 11.1,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS02",
+   "GHS06",
+   "GHS08"
+  ],
+  "hazard_statements": [
+   "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+   "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+   "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+   "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+   "H370 **: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/887"
+ },
+ "lookup:benzyl alcohol": {
+  "cid": 244,
+  "name": "Benzyl Alcohol",
+  "iupac_name": "phenylmethanol",
+  "cas": "100-51-6",
+  "molecular_formula": "C7H8O",
+  "molecular_weight": 108.14,
+  "smiles": "OCc1ccccc1",
+  "boiling_point_c": 205.2,
+  "melting_point_c": -15.2,
+  "density_g_cm3": 1.0419,
+  "flash_point_c": 98.3,
+  "refractive_index": null,
+  "signal_word": "Warning",
+  "pictograms": [
+   "GHS07"
+  ],
+  "hazard_statements": [
+   "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+   "H317: May cause an allergic skin reaction [Warning Sensitization, Skin]",
+   "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/244"
+ },
+ "lookup:hydrochloric acid": {
+  "cid": 313,
+  "name": "Hydrochloric Acid",
+  "iupac_name": "chlorane",
+  "cas": "7647-01-0",
+  "molecular_formula": "ClH",
+  "molecular_weight": 36.46,
+  "smiles": "Cl",
+  "boiling_point_c": -85.0,
+  "melting_point_c": -114.4,
+  "density_g_cm3": 1.49,
+  "flash_point_c": null,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS04",
+   "GHS05",
+   "GHS06"
+  ],
+  "hazard_statements": [
+   "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]",
+   "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/313"
+ },
+ "lab:240": {
+  "cid": 240,
+  "name": "Benzaldehyde",
+  "iupac_name": "benzaldehyde",
+  "cas": "100-52-7",
+  "molecular_formula": "C7H6O",
+  "molecular_weight": 106.12,
+  "smiles": "O=Cc1ccccc1",
+  "boiling_point_c": 178.9,
+  "melting_point_c": -26.1,
+  "density_g_cm3": 1.046,
+  "flash_point_c": 63.7,
+  "refractive_index": null,
+  "signal_word": "Warning",
+  "pictograms": [
+   "GHS07"
+  ],
+  "hazard_statements": [
+   "H302: Harmful if swallowed [Warning Acute toxicity, oral]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/240"
+ },
+ "lab:4311764": {
+  "cid": 4311764,
+  "name": "Sodium borohydride",
+  "iupac_name": "sodium boranuide",
+  "cas": "16940-66-2",
+  "molecular_formula": "BH4.Na",
+  "molecular_weight": 37.84,
+  "smiles": "[BH4-].[Na+]",
+  "boiling_point_c": null,
+  "melting_point_c": 400.0,
+  "density_g_cm3": 1.072,
+  "flash_point_c": null,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS02",
+   "GHS05",
+   "GHS06",
+   "GHS07",
+   "GHS08"
+  ],
+  "hazard_statements": [
+   "H260 (86.7%): In contact with water releases flammable gases which may ignite spontaneously [Danger Substances and mixtures which in contact with water, emit flammable gases]",
+   "H301 (99.6%): Toxic if swallowed [Danger Acute toxicity, oral]",
+   "H311 (23%): Toxic in contact with skin [Danger Acute toxicity, dermal]",
+   "H314 (99.6%): Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]",
+   "H318 (71.4%): Causes serious eye damage [Danger Serious eye damage/eye irritation]",
+   "H332 (16.7%): Harmful if inhaled [Warning Acute toxicity, inhalation]",
+   "H360 (43.7%): May damage fertility or the unborn child [Danger Reproductive toxicity]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/4311764"
+ },
+ "lab:887": {
+  "cid": 887,
+  "name": "Methanol",
+  "iupac_name": "methanol",
+  "cas": "67-56-1",
+  "molecular_formula": "CH4O",
+  "molecular_weight": 32.042,
+  "smiles": "CO",
+  "boiling_point_c": 64.6,
+  "melting_point_c": -97.8,
+  "density_g_cm3": 0.7907,
+  "flash_point_c": 11.1,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS02",
+   "GHS06",
+   "GHS08"
+  ],
+  "hazard_statements": [
+   "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+   "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+   "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+   "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+   "H370 **: Causes damage to organs [Danger Specific target organ toxicity, single exposure]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/887"
+ },
+ "lab:244": {
+  "cid": 244,
+  "name": "Benzyl Alcohol",
+  "iupac_name": "phenylmethanol",
+  "cas": "100-51-6",
+  "molecular_formula": "C7H8O",
+  "molecular_weight": 108.14,
+  "smiles": "OCc1ccccc1",
+  "boiling_point_c": 205.2,
+  "melting_point_c": -15.2,
+  "density_g_cm3": 1.0419,
+  "flash_point_c": 98.3,
+  "refractive_index": null,
+  "signal_word": "Warning",
+  "pictograms": [
+   "GHS07"
+  ],
+  "hazard_statements": [
+   "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+   "H317: May cause an allergic skin reaction [Warning Sensitization, Skin]",
+   "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/244"
+ },
+ "lab:313": {
+  "cid": 313,
+  "name": "Hydrochloric Acid",
+  "iupac_name": "chlorane",
+  "cas": "7647-01-0",
+  "molecular_formula": "ClH",
+  "molecular_weight": 36.46,
+  "smiles": "Cl",
+  "boiling_point_c": -85.0,
+  "melting_point_c": -114.4,
+  "density_g_cm3": 1.49,
+  "flash_point_c": null,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS04",
+   "GHS05",
+   "GHS06"
+  ],
+  "hazard_statements": [
+   "H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]",
+   "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/313"
+ },
+ "autocomplete:benz": {
+  "query": "benz",
+  "suggestions": [
+   {
+    "name": "Benzenepropanoic acid",
+    "cid": 107
+   },
+   {
+    "name": "Benzaldehyde",
+    "cid": 240
+   },
+   {
+    "name": "Benzene",
+    "cid": 241
+   },
+   {
+    "name": "Benzoic Acid",
+    "cid": 243
+   },
+   {
+    "name": "Benzamide",
+    "cid": 2331
+   },
+   {
+    "name": "Benzamidine",
+    "cid": 2332
+   },
+   {
+    "name": "Benzbromarone",
+    "cid": 2333
+   },
+   {
+    "name": "Benzethonium",
+    "cid": 2335
+   },
+   {
+    "name": "Benzo[a]pyrene",
+    "cid": 2336
+   },
+   {
+    "name": "Benzocaine",
+    "cid": 2337
+   }
+  ]
+ },
+ "compound:240": {
+  "cid": 240,
+  "title": "Benzaldehyde",
+  "physical_properties": {
+   "boiling_point": {
+    "value": 178.9,
+    "unit": "\u00b0C",
+    "min": 178.0,
+    "max": 179.0,
+    "n": 5,
+    "sources": [
+     {
+      "value": 178.88888888888889,
+      "low": 178.88888888888889,
+      "high": 178.88888888888889,
+      "standard": true,
+      "raw": "354 \u00b0F at 760 mmHg (NTP, 1992)",
+      "source": "CAMEO Chemicals"
+     },
+     {
+      "value": 178.7,
+      "low": 178.7,
+      "high": 178.7,
+      "standard": true,
+      "raw": "178.7 \u00b0C",
+      "source": "Hazardous Substances Data Bank (HSDB)"
+     },
+     {
+      "value": 62.5,
+      "low": 62.0,
+      "high": 63.0,
+      "standard": false,
+      "raw": "62.00 to 63.00 \u00b0C. @ 10.00 mm Hg",
+      "source": "Human Metabolome Database (HMDB)"
+     },
+     {
+      "value": 179.0,
+      "low": 179.0,
+      "high": 179.0,
+      "standard": true,
+      "raw": "179 \u00b0C",
+      "source": "ILO-WHO International Chemical Safety Cards (ICSCs)"
+     },
+     {
+      "value": 178.0,
+      "low": 178.0,
+      "high": 178.0,
+      "standard": true,
+      "raw": "178 \u00b0C",
+      "source": "Joint FAO/WHO Expert Committee on Food Additives (JECFA)"
+     },
+     {
+      "value": 179.0,
+      "low": 179.0,
+      "high": 179.0,
+      "standard": true,
+      "raw": "179 \u00b0C @760 [mm Hg]",
+      "source": "PAC Chemical Database, U.S. Department of Energy"
+     }
+    ]
+   },
+   "melting_point": {
+    "value": -26.1,
+    "unit": "\u00b0C",
+    "min": -57.1,
+    "max": -26.0,
+    "n": 5,
+    "sources": [
+     {
+      "value": -26.11111111111111,
+      "low": -26.11111111111111,
+      "high": -26.11111111111111,
+      "standard": true,
+      "raw": "-15 \u00b0F (NTP, 1992)",
+      "source": "CAMEO Chemicals"
+     },
+     {
+      "value": -57.12,
+      "low": -57.12,
+      "high": -57.12,
+      "standard": true,
+      "raw": "-57.12 \u00b0C",
+      "source": "Hazardous Substances Data Bank (HSDB)"
+     },
+     {
+      "value": -26.0,
+      "low": -26.0,
+      "high": -26.0,
+      "standard": true,
+      "raw": "-26 \u00b0C",
+      "source": "Human Metabolome Database (HMDB)"
+     },
+     {
+      "value": -26.0,
+      "low": -26.0,
+      "high": -26.0,
+      "standard": true,
+      "raw": "-26 \u00b0C",
+      "source": "ILO-WHO International Chemical Safety Cards (ICSCs)"
+     },
+     {
+      "value": -57.1,
+      "low": -57.1,
+      "high": -57.1,
+      "standard": true,
+      "raw": "-57.1 \u00b0C",
+      "source": "PAC Chemical Database, U.S. Department of Energy"
+     }
+    ]
+   },
+   "flash_point": {
+    "value": 63.7,
+    "unit": "\u00b0C",
+    "min": 62.8,
+    "max": 73.9,
+    "n": 4,
+    "sources": [
+     {
+      "value": 64.44444444444444,
+      "low": 64.44444444444444,
+      "high": 64.44444444444444,
+      "standard": true,
+      "raw": "148 \u00b0F (NTP, 1992)",
+      "source": "CAMEO Chemicals"
+     },
+     {
+      "value": 62.77777777777778,
+      "low": 62.77777777777778,
+      "high": 62.77777777777778,
+      "standard": true,
+      "raw": "145 \u00b0F, 63 \u00b0C (Closed cup)",
+      "source": "Hazardous Substances Data Bank (HSDB)"
+     },
+     {
+      "value": 73.9,
+      "low": 73.9,
+      "high": 73.9,
+      "standard": true,
+      "raw": "73.9 \u00b0C (Open cup)",
+      "source": "Hazardous Substances Data Bank (HSDB)"
+     },
+     {
+      "value": 63.0,
+      "low": 63.0,
+      "high": 63.0,
+      "standard": true,
+      "raw": "63 \u00b0C c.c.",
+      "source": "ILO-WHO International Chemical Safety Cards (ICSCs)"
+     }
+    ]
+   },
+   "autoignition_temperature": {
+    "value": 192.0,
+    "unit": "\u00b0C",
+    "min": 191.7,
+    "max": 192.2,
+    "n": 3,
+    "sources": [
+     {
+      "value": 192.22222222222223,
+      "low": 192.22222222222223,
+      "high": 192.22222222222223,
+      "standard": true,
+      "raw": "378 \u00b0F (USCG, 1999)",
+      "source": "CAMEO Chemicals"
+     },
+     {
+      "value": 191.66666666666666,
+      "low": 191.66666666666666,
+      "high": 191.66666666666666,
+      "standard": true,
+      "raw": "377 \u00b0F, 192 \u00b0C",
+      "source": "Hazardous Substances Data Bank (HSDB)"
+     },
+     {
+      "value": 192.0,
+      "low": 192.0,
+      "high": 192.0,
+      "standard": true,
+      "raw": "192 \u00b0C",
+      "source": "ILO-WHO International Chemical Safety Cards (ICSCs)"
+     }
+    ]
+   },
+   "density": {
+    "value": 1.046,
+    "unit": "g/cm\u00b3",
+    "min": 1.04,
+    "max": 1.05,
+    "n": 5,
+    "sources": [
+     {
+      "value": 1.046,
+      "low": 1.046,
+      "high": 1.046,
+      "standard": true,
+      "raw": "1.046 at 68 \u00b0F (USCG, 1999) - Denser than water; will sink",
+      "source": "CAMEO Chemicals"
+     },
+     {
+      "value": 1.05,
+      "low": 1.05,
+      "high": 1.05,
+      "standard": true,
+      "raw": "1.050 at 15 \u00b0C/4 \u00b0C",
+      "source": "Hazardous Substances Data Bank (HSDB)"
+     },
+     {
+      "value": 1.05,
+      "low": 1.05,
+      "high": 1.05,
+      "standard": true,
+      "raw": "Relative density (water = 1): 1.05",
+      "source": "ILO-WHO International Chemical Safety Cards (ICSCs)"
+     },
+     {
+      "value": 1.04,
+      "low": 1.04,
+      "high": 1.04,
+      "standard": true,
+      "raw": "1.040-1.047",
+      "source": "Joint FAO/WHO Expert Committee on Food Additives (JECFA)"
+     },
+     {
+      "value": 1.041,
+      "low": 1.041,
+      "high": 1.041,
+      "standard": true,
+      "raw": "1.041 @25 \u00b0C",
+      "source": "PAC Chemical Database, U.S. Department of Energy"
+     }
+    ]
+   }
+  }
+ },
+ "health": {
+  "status": "ok",
+  "version": "0.4.0",
+  "datasets": {
+   "compounds": false,
+   "names": false,
+   "lcss": true
+  },
+  "counts": {
+   "lab_safety_records": 256927
+  }
+ }
+}

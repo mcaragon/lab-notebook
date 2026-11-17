@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>lab-notebook</Name>
+  <Repository>ghcr.io/mcaragon/lab-notebook:latest</Repository>
+  <Registry>https://github.com/mcaragon/lab-notebook/pkgs/container/lab-notebook</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/mcaragon/lab-notebook/issues</Support>
+  <Project>https://github.com/mcaragon/lab-notebook</Project>
+  <Overview>Self-hosted lab notebook for organic chemistry experiments. Plan experiments with a reagent table that fills in molar masses, densities, boiling and melting points and GHS hazards from PubChem Local, calculates mass, volume, mmol, equivalents, the limiting reagent and the yield, keeps a timestamped log of observations and measurements, and generates the lab report as PDF, Markdown or a printable page.&#xD;
+&#xD;
+Requires the PubChem Local container (ghcr.io/mcaragon/local_pubchem_db) for chemical data; without it, all data can be entered by hand.</Overview>
+  <Category>Tools: Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:8000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/mcaragon/lab-notebook/main/unraid/lab-notebook.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/mcaragon/lab-notebook/main/unraid/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <Requires>PubChem Local (pubchem-local container) for chemical data lookups.</Requires>
+  <Config Name="Web UI port" Target="8000" Default="55056" Mode="tcp" Description="Port of the web UI" Type="Port" Display="always" Required="true" Mask="false">55056</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/lab-notebook" Mode="rw" Description="Notebook database (notebook.sqlite). Back this folder up." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/lab-notebook</Config>
+  <Config Name="PubChem Local URL" Target="PUBCHEM_URL" Default="" Mode="" Description="Base URL of PubChem Local as seen from this container, e.g. http://192.168.1.10:55055 (Unraid IP + host port). If both containers are on the same custom Docker network, use http://pubchem-local:8080 (container name + container port)." Type="Variable" Display="always" Required="true" Mask="false"></Config>
+  <Config Name="Author" Target="AUTHOR_NAME" Default="" Mode="" Description="Default author name for new experiments and reports." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Lab / institution" Target="LAB_NAME" Default="" Mode="" Description="Shown in the report header." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Time zone" Target="TZ" Default="" Mode="" Description="Time zone for log timestamps, e.g. Europe/Berlin. Unraid normally sets this automatically." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID the app runs as" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID the app runs as" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+</Container>
