@@ -15,6 +15,10 @@ Forms:
 A neat compound that is solid at room temperature (melting point above 25 °C) gets no calculated volume; a volume
 typed for it is still used.
 
+Each row has a *planned* amount (the basis above) and, once weighed or measured, an *actual* amount
+(``actual_basis`` "mass" or "volume" with ``actual_value``). Wherever an actual amount exists it is the one used:
+the limiting reagent, the theoretical yield and the percent yield are based on what really went into the flask.
+
 Equivalents are relative to the reference row (``is_reference``) or, if none is marked, to the first reactant with
 a known amount. The limiting reagent is the reactant with the smallest mmol / coefficient. Reagents, catalysts and
 solvents never limit the yield.
@@ -24,7 +28,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-ROLES = ("reactant", "reagent", "catalyst", "solvent", "product", "other")
+ROLES = ("reactant", "reagent", "catalyst", "solvent", "workup", "product")
+# Roles that take part in the reaction (stoichiometry); solvents and workup materials only have amounts
+REACTION_ROLES = ("reactant", "reagent", "catalyst")
 FORMS = ("neat", "solution", "wt")
 BASES = ("mass", "volume", "mmol", "equiv")
 SOLID_ABOVE_C = 25.0
@@ -48,14 +54,29 @@ def _pos(v: Any) -> Optional[float]:
 @dataclass
 class RowResult:
     id: Any
+    # planned
     mass_g: Optional[float] = None
     volume_ml: Optional[float] = None
     mmol: Optional[float] = None
     equiv: Optional[float] = None
+    # actual (weighed / measured)
+    act_mass_g: Optional[float] = None
+    act_volume_ml: Optional[float] = None
+    act_mmol: Optional[float] = None
+    act_equiv: Optional[float] = None
+    deviation_pct: Optional[float] = None
+    used_mmol: Optional[float] = None  # actual if known, else planned
     is_limiting: bool = False
+    # products
     theoretical_mmol: Optional[float] = None
     theoretical_mass_g: Optional[float] = None
+    isolated_mass_g: Optional[float] = None
+    isolated_mmol: Optional[float] = None
     percent_yield: Optional[float] = None
+    crude_mass_g: Optional[float] = None
+    crude_percent: Optional[float] = None
+    expected_yield_pct: Optional[float] = None
+    expected_mass_g: Optional[float] = None
     warnings: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -139,50 +160,53 @@ def _missing_hint(row: _Row, need: str) -> str:
     return "Enter the molar mass."
 
 
+def _amounts(h: "_Row", basis: Optional[str], val: Optional[float]) -> tuple:
+    """(mass, volume, mmol) from an absolute basis."""
+    if basis == "mass" and val is not None:
+        return val, h.mass_to_volume(val), h.mass_to_mmol(val)
+    if basis == "volume" and val is not None:
+        return h.volume_to_mass(val), val, h.volume_to_mmol(val)
+    if basis == "mmol" and val is not None:
+        return None, None, val
+    return None, None, None
+
+
 def compute(rows: list[dict]) -> dict:
-    """Compute the reagent table.
+    """Compute the reagent table of one reaction step.
 
     ``rows`` are dicts with keys: id, role, form, mw, density, mp, purity, concentration_m, wt_percent,
-    solution_density, coefficient, basis, basis_value, is_reference, actual_mass_g.
+    solution_density, coefficient, basis, basis_value, is_reference, actual_basis, actual_value, and for products
+    actual_mass_g (isolated, purified), crude_mass_g and expected_yield_pct.
 
     Returns ``{"rows": {id: RowResult dict}, "reference_id", "limiting_id", "reference_mmol"}``.
     """
     results: dict[Any, RowResult] = {}
     helpers: dict[Any, _Row] = {}
+    products = [r for r in rows if r.get("role") == "product"]
+    inputs = [r for r in rows if r.get("role") != "product"]
 
-    # Pass 1: rows whose basis is an absolute quantity
-    for r in rows:
+    for r in inputs:
         rid = r.get("id")
         h = helpers[rid] = _Row(r)
         res = results[rid] = RowResult(id=rid)
-        basis = r.get("basis")
-        val = _pos(r.get("basis_value"))
-        if basis not in BASES or val is None:
-            continue
-        if basis == "mass":
-            res.mass_g = val
-            res.mmol = h.mass_to_mmol(val)
-            res.volume_ml = h.mass_to_volume(val)
-        elif basis == "volume":
-            res.volume_ml = val
-            res.mmol = h.volume_to_mmol(val)
-            res.mass_g = h.volume_to_mass(val)
-        elif basis == "mmol":
-            res.mmol = val
+        res.mass_g, res.volume_ml, res.mmol = _amounts(h, r.get("basis"), _pos(r.get("basis_value")))
+        if r.get("basis") == "mass":
+            res.mass_g = _pos(r.get("basis_value"))
+        abasis = r.get("actual_basis") if r.get("actual_basis") in ("mass", "volume") else None
+        res.act_mass_g, res.act_volume_ml, res.act_mmol = _amounts(h, abasis, _pos(r.get("actual_value")))
 
     # Reference: the marked row, else the first reactant with an amount
-    ref_id = next((r.get("id") for r in rows if r.get("is_reference")), None)
+    ref_id = next((r.get("id") for r in inputs if r.get("is_reference")), None)
     if ref_id is None:
-        ref_id = next((r.get("id") for r in rows
-                       if r.get("role") == "reactant" and results[r.get("id")].mmol), None)
+        ref_id = next((r.get("id") for r in inputs if r.get("role") == "reactant"
+                       and (results[r.get("id")].mmol or results[r.get("id")].act_mmol)), None)
     ref_mmol = results[ref_id].mmol if ref_id is not None else None
     if ref_id is not None and not ref_mmol:
-        ref_row = next(r for r in rows if r.get("id") == ref_id)
+        ref_row = next(r for r in inputs if r.get("id") == ref_id)
         if ref_row.get("basis") == "equiv":
             results[ref_id].warnings.append("The reference row needs a mass, volume or mmol, not equivalents.")
 
-    # Pass 2: equivalents-based rows, then fill derived quantities
-    for r in rows:
+    for r in inputs:
         rid = r.get("id")
         res, h = results[rid], helpers[rid]
         if r.get("basis") == "equiv" and rid != ref_id:
@@ -197,17 +221,34 @@ def compute(rows: list[dict]) -> dict:
                 res.mass_g = h.mmol_to_mass(res.mmol)
             if res.volume_ml is None:
                 res.volume_ml = h.mmol_to_volume(res.mmol)
-            if ref_mmol:
-                res.equiv = res.mmol / ref_mmol
-        elif r.get("basis") in ("mass", "volume") and _pos(r.get("basis_value")) and r.get("role") != "solvent":
+        elif (r.get("basis") in ("mass", "volume") and _pos(r.get("basis_value"))
+              and r.get("role") in REACTION_ROLES):
             res.warnings.append(_missing_hint(h, "mmol"))
+        if res.act_mmol is None and r.get("actual_basis") and _pos(r.get("actual_value")) \
+                and r.get("role") in REACTION_ROLES and not res.warnings:
+            res.warnings.append(_missing_hint(h, "mmol"))
+        res.used_mmol = res.act_mmol if res.act_mmol is not None else res.mmol
+        if res.mmol and res.act_mmol:
+            res.deviation_pct = (res.act_mmol - res.mmol) / res.mmol * 100
+        elif res.mass_g and res.act_mass_g:
+            res.deviation_pct = (res.act_mass_g - res.mass_g) / res.mass_g * 100
+        elif res.volume_ml and res.act_volume_ml:
+            res.deviation_pct = (res.act_volume_ml - res.volume_ml) / res.volume_ml * 100
 
-    # Limiting reactant
+    ref_used = results[ref_id].used_mmol if ref_id is not None else None
+    for r in inputs:
+        res = results[r.get("id")]
+        if ref_mmol and res.mmol is not None:
+            res.equiv = res.mmol / ref_mmol
+        if ref_used and res.act_mmol is not None:
+            res.act_equiv = res.act_mmol / ref_used
+
+    # Limiting reactant: from actual amounts where known
     lim_id, lim_ratio = None, None
-    for r in rows:
+    for r in inputs:
         if r.get("role") != "reactant":
             continue
-        mmol = results[r.get("id")].mmol
+        mmol = results[r.get("id")].used_mmol
         coef = _pos(r.get("coefficient")) or 1.0
         if mmol:
             ratio = mmol / coef
@@ -216,14 +257,11 @@ def compute(rows: list[dict]) -> dict:
     if lim_id is not None:
         results[lim_id].is_limiting = True
 
-    # Products: theoretical and percent yield
-    for r in rows:
-        if r.get("role") != "product":
-            continue
-        res, h = results[r.get("id")], helpers[r.get("id")]
-        # A product's own basis is not a planned amount; the table shows the isolated amount instead
-        res.mass_g = res.volume_ml = res.mmol = res.equiv = None
-        res.warnings.clear()
+    # Products: theoretical, expected, crude and isolated yield
+    for r in products:
+        rid = r.get("id")
+        h = helpers[rid] = _Row(r)
+        res = results[rid] = RowResult(id=rid)
         coef = _pos(r.get("coefficient")) or 1.0
         if lim_ratio is not None:
             res.theoretical_mmol = lim_ratio * coef
@@ -231,13 +269,19 @@ def compute(rows: list[dict]) -> dict:
                 res.theoretical_mass_g = res.theoretical_mmol * h.mw / 1000
             else:
                 res.warnings.append("Enter the molar mass of the product to calculate the theoretical yield.")
+        res.expected_yield_pct = _pos(r.get("expected_yield_pct"))
+        if res.expected_yield_pct and res.theoretical_mass_g:
+            res.expected_mass_g = res.theoretical_mass_g * res.expected_yield_pct / 100
+        crude = _pos(r.get("crude_mass_g"))
+        if crude is not None:
+            res.crude_mass_g = crude
+            if res.theoretical_mass_g:
+                res.crude_percent = crude / res.theoretical_mass_g * 100
         actual = _pos(r.get("actual_mass_g"))
         if actual is not None:
-            res.mass_g = actual
+            res.isolated_mass_g = actual
             if h.mw:
-                res.mmol = actual * h.purity / h.mw * 1000
-                if ref_mmol:
-                    res.equiv = res.mmol / ref_mmol
+                res.isolated_mmol = actual * h.purity / h.mw * 1000
             if res.theoretical_mass_g:
                 res.percent_yield = actual * h.purity / res.theoretical_mass_g * 100
 
@@ -247,3 +291,32 @@ def compute(rows: list[dict]) -> dict:
         "reference_mmol": ref_mmol,
         "limiting_id": lim_id,
     }
+
+
+def compute_experiment(steps: list[dict], reagents: list[dict], stoich_rows) -> dict:
+    """Run :func:`compute` per step and add the overall yield (product of the step yields).
+
+    Returns ``{"rows": {...all reagent ids...}, "steps": {step_id: {reference_id, limiting_id, reference_mmol,
+    step_yield}}, "overall_yield"}``. A step's yield is that of its first product with a yield.
+    """
+    out_rows, out_steps = {}, {}
+    overall, complete = 1.0, bool(steps)
+    for s in steps:
+        rows = stoich_rows([r for r in reagents if r.get("step_id") == s["id"]])
+        res = compute(rows)
+        out_rows.update(res["rows"])
+        yields = [res["rows"][r["id"]]["percent_yield"] for r in rows
+                  if r.get("role") == "product" and res["rows"][r["id"]]["percent_yield"] is not None]
+        step_yield = yields[0] if yields else None
+        out_steps[s["id"]] = {k: res[k] for k in ("reference_id", "reference_mmol", "limiting_id")}
+        out_steps[s["id"]]["step_yield"] = step_yield
+        if step_yield is None:
+            complete = False
+        else:
+            overall *= step_yield / 100
+    # Reagents not in any known step (should not happen) still get computed
+    orphans = [r for r in reagents if r["id"] not in out_rows]
+    if orphans:
+        out_rows.update(compute(stoich_rows(orphans))["rows"])
+    return {"rows": out_rows, "steps": out_steps,
+            "overall_yield": overall * 100 if complete and len(steps) > 1 else None}
