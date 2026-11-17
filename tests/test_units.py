@@ -1,0 +1,163 @@
+"""Actions, hazards, scheme layout, mentions and the v1 -> v2 database migration."""
+import json
+import sqlite3
+from pathlib import Path
+
+import pytest
+
+from labnotebook import actions, db, hazards, scheme
+from labnotebook.stoich import compute_experiment
+
+FIXTURES = json.loads((Path(__file__).parent / "fixtures" / "pubchem.json").read_text())
+
+
+@pytest.mark.parametrize("text,seconds", [("10 min", 600), ("1 h 30 min", 5400), ("90 s", 90), ("1.5 h", 5400),
+                                          ("1:30", 90), ("1:00:00", 3600), ("5", 300), ("", None), ("soon", None)])
+def test_parse_duration(text, seconds):
+    assert actions.parse_duration(text) == seconds
+
+
+def test_describe_actions():
+    names = {1: "DCM", 2: "Brine", 3: "Product A"}.get
+    d = actions.describe
+    assert d("extract", {"chem": {"reagent_id": 1}, "n": 4, "volume": 25}, names) == "Extracted with DCM (4 × 25 mL)"
+    assert d("wash", {"chem": {"reagent_id": 2}, "n": 2, "volume": 20}, names) == "Washed with Brine (2 × 20 mL)"
+    assert d("quench", {"chem": {"name": "sat. NH4Cl"}, "amount": 10, "unit": "mL"}) == "Quenched with sat. NH4Cl (10 mL)"
+    assert d("dry", {"chem": {"name": "MgSO4"}}) == "Dried over MgSO4"
+    assert d("temperature", {"verb": "Cooled to", "temp": "-78"}) == "Cooled to −78 °C"
+    assert d("temperature", {"verb": "Heated at reflux", "duration": "2 h"}) == "Heated at reflux for 2 h"
+    assert d("stir", {"temp": "rt", "duration": "16 h"}) == "Stirred at rt for 16 h"
+    assert d("tlc", {"eluent": "4:1 hexanes/EtOAc", "spots": "SM 0.55, P 0.25", "stain": "KMnO4"}) == \
+        "TLC (4:1 hexanes/EtOAc): SM 0.55, P 0.25; visualized with KMnO4"
+    assert d("purify", {"method": "flash column chromatography", "solvent": "10% EtOAc/hexanes"}) == \
+        "Purified by flash column chromatography (10% EtOAc/hexanes)"
+    assert d("isolate", {"product": 3, "stage": "crude", "mass": 1.2}, names) == "Product A (crude): 1.2 g"
+    assert d("measure", {"quantity": "mp", "value": "102–104", "unit": "°C"}) == "mp: 102–104 °C"
+
+
+def test_usage_totals():
+    entries = [{"action": "extract", "data": {"chem": {"reagent_id": 1}, "n": 3, "volume": 20}},
+               {"action": "wash", "data": {"chem": {"reagent_id": 1}, "volume": 10}},
+               {"action": "quench", "data": {"chem": {"reagent_id": 2}, "amount": 500, "unit": "µL"}},
+               {"action": "observation", "data": {"text": "x"}}]
+    assert actions.usage(entries) == {1: {"mL": 70}, 2: {"mL": 0.5}}
+
+
+def test_extra_hazards_extraction():
+    meoh = hazards.extract(FIXTURES["safety:887"])
+    assert meoh["dot"]["un"] == ["UN1230"] and meoh["dot"]["packing_groups"] == ["II"]
+    assert "Class 3 Flammable and combustible liquid" in meoh["dot"]["classes"]
+    assert not meoh["dot"]["forbidden"]
+    fulm = hazards.extract(FIXTURES["safety:11022444"])
+    assert fulm["dot"]["forbidden"] and fulm["alerts"] == ["Explosive"]
+    assert hazards.summary_lines(fulm)[0] == "DOT: forbidden for transport"
+    assert hazards.parse_nfpa("3-2-2-W") == {"health": 3, "fire": 2, "instability": 2, "special": "W"}
+    assert hazards.extract(None) == {} and hazards.extract({"sections": []}) == {}
+
+
+def _bundle(style="auto"):
+    steps = [{"id": 1, "conditions": [{"temperature": "0", "duration": "15 min"}, {"temperature": "rt", "duration": "2 h"}],
+              "atmosphere": "N₂"},
+             {"id": 2, "conditions": [{"temperature": "rt", "duration": "16 h"}]}]
+    r = lambda **k: {"form": "neat", "coefficient": 1, "scheme_pos": "auto", **k}  # noqa: E731
+    reagents = [
+        r(id=1, step_id=1, role="reactant", name="Benzaldehyde", cid=240, mw=106.12, basis="mmol", basis_value=10),
+        r(id=2, step_id=1, role="reagent", name="Sodium borohydride", label="NaBH4", mw=37.83, basis="equiv", basis_value=0.5),
+        r(id=3, step_id=1, role="solvent", name="Methanol", label="MeOH"),
+        r(id=4, step_id=1, role="product", name="Benzyl alcohol", cid=244, mw=108.14, actual_mass_g=0.9),
+        r(id=5, step_id=2, role="reactant", name="Benzyl alcohol", cid=244, mw=108.14, source_reagent_id=4,
+          basis="mass", basis_value=0.9),
+        r(id=6, step_id=2, role="reagent", name="Manganese dioxide", label="MnO2", mw=86.94, basis="equiv", basis_value=10),
+        r(id=7, step_id=2, role="catalyst", name="Pd", label="Pd/C", mw=106.4, basis="equiv", basis_value=0.05),
+        r(id=8, step_id=2, role="product", name="Benzaldehyde", cid=240, mw=106.12),
+    ]
+    return {"experiment": {"scheme_style": style}, "steps": steps, "reagents": reagents, "entries": [], "refs": []}
+
+
+def test_scheme_layout_multistep():
+    b = _bundle()
+    calc = compute_experiment(b["steps"], b["reagents"], db.stoich_rows)
+    sch = scheme.build(b, calc)
+    kinds = [s["type"] for s in sch["segments"]]
+    assert kinds == ["mols", "arrow", "mols", "arrow", "mols"]
+    a1, a2 = sch["segments"][1], sch["segments"][3]
+    assert a1["above"] == ["NaBH4 (0.50 equiv)"]
+    assert a1["below"] == ["MeOH", "N₂", "0 °C, 15 min; then rt, 2 h"]
+    assert a2["above"] == ["MnO2 (10 equiv)", "Pd/C (5.0 mol%)"]
+    # benzaldehyde keeps number 1 when it reappears; the carried alcohol keeps 2
+    assert [m["number"] for m in sch["segments"][0]["mols"]] == [1]
+    assert [m["number"] for m in sch["segments"][2]["mols"]] == [2]
+    assert [m["number"] for m in sch["segments"][4]["mols"]] == [1]
+    assert sch["segments"][2]["mols"][0]["yield"] == pytest.approx(0.9 / 1.0814 * 100)
+    assert sch["lettered"]  # long text / several steps -> lettered automatically
+    assert sch["legend"][0] == ("a", "NaBH4 (0.50 equiv), MeOH, N₂, 0 °C, 15 min; then rt, 2 h")
+    assert not scheme.build(_bundle("inline"), calc)["lettered"]
+
+
+def test_scheme_positions():
+    b = _bundle("inline")
+    b["reagents"][1]["scheme_pos"] = "below"
+    b["reagents"][2]["scheme_pos"] = "hidden"
+    calc = compute_experiment(b["steps"], b["reagents"], db.stoich_rows)
+    a1 = scheme.build(b, calc)["segments"][1]
+    assert a1["above"] == [] and a1["below"][0] == "NaBH4 (0.50 equiv)" and "MeOH" not in a1["below"]
+
+
+def test_mentions():
+    b = _bundle()
+    rows = compute_experiment(b["steps"], b["reagents"], db.stoich_rows)["rows"]
+    rs = b["reagents"]
+    assert scheme.render_mentions("Add @NaBH4, then stir.", rs, rows) == \
+        "Add NaBH4 (0.189 g, 5.00 mmol, 0.500 equiv), then stir."
+    assert scheme.render_mentions("Dissolve @{Benzaldehyde} in @MeOH", rs, rows) == \
+        "Dissolve Benzaldehyde (1.06 g, 10.0 mmol) in MeOH"
+    assert scheme.render_mentions("email me@home", rs, rows) == "email me@home"
+    assert "&lt;b&gt;" in scheme.render_mentions("<b>@NaBH4", rs, rows, mode="html")
+
+
+def test_split_procedure():
+    assert db.split_procedure("1. Dissolve A\n   in B\n2. Add C\n\nStir") == ["Dissolve A in B", "Add C", "Stir"]
+
+
+V1_SCHEMA = """
+CREATE TABLE experiments (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '', date TEXT, author TEXT, course TEXT,
+  status TEXT NOT NULL DEFAULT 'planned', objective TEXT, reaction_scheme TEXT, procedure TEXT, results TEXT,
+  discussion TEXT, conclusion TEXT, "references" TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE reagents (id INTEGER PRIMARY KEY, experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0, cid INTEGER, pubchem_url TEXT, name TEXT, iupac_name TEXT, cas TEXT, formula TEXT,
+  smiles TEXT, mw REAL, density REAL, bp REAL, mp REAL, flash_point REAL, refractive_index REAL, signal_word TEXT,
+  pictograms TEXT, hazard_statements TEXT, sources TEXT, role TEXT NOT NULL DEFAULT 'reactant',
+  form TEXT NOT NULL DEFAULT 'neat', purity REAL, concentration_m REAL, wt_percent REAL, solution_density REAL,
+  coefficient REAL NOT NULL DEFAULT 1, basis TEXT, basis_value REAL, is_reference INTEGER NOT NULL DEFAULT 0,
+  actual_mass_g REAL, notes TEXT);
+CREATE INDEX reagents_exp ON reagents(experiment_id, position);
+CREATE TABLE entries (id INTEGER PRIMARY KEY, experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+  ts TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'note', text TEXT NOT NULL DEFAULT '', value TEXT, unit TEXT);
+CREATE INDEX entries_exp ON entries(experiment_id, ts);
+PRAGMA user_version = 1;
+"""
+
+
+def test_migration_from_v1(tmp_path):
+    path = tmp_path / "notebook.sqlite"
+    c = sqlite3.connect(path)
+    c.executescript(V1_SCHEMA)
+    c.execute("INSERT INTO experiments (id, title, reaction_scheme, procedure, \"references\", created_at, updated_at) "
+              "VALUES (1, 'Old', 'A -> B', '1. Dissolve A\n2. Add B', 'Lab manual\nSmith 2020', 'x', 'x')")
+    c.execute("INSERT INTO reagents (experiment_id, name, role, mw, actual_mass_g, notes) VALUES (1, 'A', 'reactant', 100, NULL, 'lot 5')")
+    c.execute("INSERT INTO reagents (experiment_id, name, role) VALUES (1, 'Celite', 'other')")
+    c.execute("INSERT INTO entries (experiment_id, ts, kind, text) VALUES (1, '2026-01-01T10:00:00+00:00', 'observation', 'Yellow')")
+    c.commit()
+    c.close()
+    store = db.Store(path)
+    b = store.bundle(1)
+    assert len(b["steps"]) == 1 and b["steps"][0]["notes"] == "A -> B"
+    assert all(r["step_id"] == b["steps"][0]["id"] for r in b["reagents"])
+    assert [r["role"] for r in b["reagents"]] == ["reactant", "workup"]
+    assert b["reagents"][0]["notes"] == "lot 5"
+    assert [p["text"] for p in b["procedure"]] == ["Dissolve A", "Add B"]
+    assert [r["text"] for r in b["refs"]] == ["Lab manual", "Smith 2020"]
+    assert b["entries"][0]["action"] == "observation"
+    with sqlite3.connect(path) as c2:
+        assert c2.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
+    db.Store(path)  # opening again is a no-op

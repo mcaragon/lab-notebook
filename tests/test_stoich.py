@@ -92,7 +92,7 @@ def test_theoretical_and_percent_yield():
     assert p["theoretical_mmol"] == pytest.approx(10.0)
     assert p["theoretical_mass_g"] == pytest.approx(1.0814)
     assert p["percent_yield"] == pytest.approx(0.865 / 1.0814 * 100)
-    assert p["mmol"] == pytest.approx(0.865 / 108.14 * 1000)
+    assert p["isolated_mmol"] == pytest.approx(0.865 / 108.14 * 1000)
 
 
 def test_missing_data_gives_warnings_not_errors():
@@ -123,3 +123,50 @@ def test_solids_get_no_calculated_volume():
     assert r["mass_g"] == pytest.approx(0.18915) and r["volume_ml"] is None
     rows[1]["mp"] = -26  # liquid
     assert compute(rows)["rows"][2]["volume_ml"] == pytest.approx(0.18915 / 1.07)
+
+
+def test_actual_amounts_drive_limiting_and_yield():
+    # Planned 10 mmol of each reactant; actually only 9.0 mmol of B went in -> B limits, yield on 9.0 mmol
+    rows = [row(1, mw=100, basis="mmol", basis_value=10, actual_basis="mass", actual_value=1.0),
+            row(2, mw=50, basis="mmol", basis_value=10, actual_basis="mass", actual_value=0.45),
+            row(3, role="product", mw=150, actual_mass_g=1.08)]
+    res = compute(rows)
+    a, b, p = res["rows"][1], res["rows"][2], res["rows"][3]
+    assert b["act_mmol"] == pytest.approx(9.0) and b["deviation_pct"] == pytest.approx(-10.0)
+    assert res["limiting_id"] == 2 and b["is_limiting"]
+    assert a["act_equiv"] == pytest.approx(10 / 10)  # reference is row 1 (actual 10 mmol)
+    assert p["theoretical_mmol"] == pytest.approx(9.0)
+    assert p["percent_yield"] == pytest.approx(1.08 / (9.0 * 150 / 1000) * 100)
+
+
+def test_actual_volume_of_liquid():
+    r = compute([row(1, mw=106.12, density=1.046, basis="mass", basis_value=1.06,
+                     actual_basis="volume", actual_value=1.0)])["rows"][1]
+    assert r["act_mass_g"] == pytest.approx(1.046)
+    assert r["act_mmol"] == pytest.approx(1.046 / 106.12 * 1000)
+
+
+def test_expected_and_crude_yield():
+    rows = [row(1, mw=100, basis="mmol", basis_value=10),
+            row(2, role="product", mw=200, crude_mass_g=2.1, actual_mass_g=1.5, expected_yield_pct=80)]
+    p = compute(rows)["rows"][2]
+    assert p["theoretical_mass_g"] == pytest.approx(2.0)
+    assert p["expected_mass_g"] == pytest.approx(1.6)
+    assert p["crude_percent"] == pytest.approx(105.0)
+    assert p["percent_yield"] == pytest.approx(75.0)
+
+
+def test_overall_yield_multiplies_step_yields():
+    from labnotebook.db import stoich_rows
+    from labnotebook.stoich import compute_experiment
+    steps = [{"id": 1}, {"id": 2}]
+    reagents = [
+        dict(row(1, mw=100, basis="mmol", basis_value=10), step_id=1),
+        dict(row(2, role="product", mw=100, actual_mass_g=0.8), step_id=1),   # 80 %
+        dict(row(3, mw=100, basis="mass", basis_value=0.8), step_id=2),
+        dict(row(4, role="product", mw=100, actual_mass_g=0.4), step_id=2),   # 50 %
+    ]
+    res = compute_experiment(steps, reagents, stoich_rows)
+    assert res["steps"][1]["step_yield"] == pytest.approx(80.0)
+    assert res["steps"][2]["step_yield"] == pytest.approx(50.0)
+    assert res["overall_yield"] == pytest.approx(40.0)

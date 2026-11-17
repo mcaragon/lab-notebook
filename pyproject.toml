@@ -31,7 +31,7 @@ packages = ["labnotebook"]
 version = { attr = "labnotebook.__version__" }
 
 [tool.setuptools.package-data]
-labnotebook = ["static/*", "templates/*"]
+labnotebook = ["static/*", "static/js/*", "templates/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

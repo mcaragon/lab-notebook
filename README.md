@@ -3,21 +3,46 @@
 Self-hosted lab notebook for organic chemistry experiments. It uses [PubChem Local](https://github.com/mcaragon/local_pubchem_db)
 as its chemical data source and runs as its own Docker container (built for Unraid).
 
-- **Experiments** with title, date, author, course and status (planned / in progress / completed).
-- **Reagent table** with autocomplete by name, CAS, formula or SMILES. Molar mass, density, bp, mp, flash point,
-  refractive index and GHS hazards are filled in from PubChem Local. Any value can be overridden (marked *edited*,
-  one click restores the PubChem value), and the individual source values behind bp/mp/density/flash point can be
-  shown.
-- **Stoichiometry**: type a mass, volume, mmol or equivalents in any row and the rest is calculated. Handles purity,
-  molar solutions (e.g. 2.5 M n-BuLi) and wt% solutions (e.g. 37 % HCl), stoichiometric coefficients, a reference
-  reagent for equivalents, the limiting reactant, and theoretical and percent yield.
-- **Procedure**, **timestamped log** of observations, notes and measurements (value + unit), and **results /
-  discussion / conclusion / references**.
-- **Lab report** as PDF, Markdown or a printable HTML page, with structures, a reagent table, a safety table with GHS
-  pictograms and H-statements, the observation log, yields, and PubChem citations.
+- **One page per experiment**: overview, reaction scheme, reagents, procedure & log, results, references and report,
+  with a section menu. A bench bar with the experiment clock stays at the top while you work.
+- **Multi-step work, two ways.** Steps inside one experiment (one-pot or telescoped sequences done in one session):
+  each step has its own reagents and condition stages (e.g. 0 °C, 15 min; then rt, 2 h) and starts from the previous
+  step's product. **Sequences** link separate experiments, e.g. one per step on different days, also after the fact:
+  an experiment continues the route when one of its starting materials is the previous experiment's product.
+  "Next experiment" starts a new one from the last product. A sequence has an overall scheme, a yield per step and
+  an overall yield, and a combined report with one chapter per experiment.
+- **Reaction scheme** drawn the organic chemistry way: numbered structures, reagents and catalysts above each arrow,
+  solvent, atmosphere and conditions below, yields under the products. Long conditions switch to lettered arrows with
+  a legend.
+- **Reagent table** grouped into starting materials, reagents & catalysts, solvents, workup & purification, and
+  products. Autocomplete by name, CAS, formula or SMILES; typing `2.5 M n-BuLi in hexanes` or `37% HCl` sets the
+  solution type. Molar mass, density, bp, mp, flash point, GHS pictograms and H-statements, plus DOT transport class,
+  NFPA 704 rating and reactivity alerts, come from PubChem Local and are shown on every row. Values can be overridden
+  (marked *edited*, one click restores them), and grade, supplier, lot, notes and extra hazard notes can be added.
+- **Planned and actual amounts.** Plan in g, mL, mmol or equivalents; record what you actually weighed or measured.
+  The deviation is shown, the measurement is logged, and the limiting reagent and yields use the actual amounts.
+- **Yields:** theoretical (from stoichiometry), expected (literature, linked to a reference), crude and isolated
+  (actual), per step and overall.
+- **Procedure as numbered steps** with notes, checkboxes and `@` mentions that print the chemical's amount
+  (`Add @NaBH4` → "Add NaBH4 (0.189 g, 5.00 mmol, 0.500 equiv)").
+- **Log next to the procedure.** Every entry records the time of day and T+ from the start of the experiment.
+  Structured actions write standard sentences: add (portionwise/dropwise, over a time), quench, extract
+  (4 × 25 mL DCM), wash, dry, filter, concentrate, heat/cool, stir, TLC (eluent, Rf), purify, product mass,
+  measurements, observations. Solvent use from the log is totalled per chemical.
+- **Timers:** stopwatches started from an action ("Addition of NaBH4") that log their duration when stopped, and
+  countdowns with a sound, vibration and notification alert. Timers keep running across reloads and devices.
+- **References as numbered rows** (authors, title, journal, year, volume, pages, DOI) or free text; PubChem citations
+  are added automatically.
+- **Lab report** as PDF, Markdown or a printable HTML page. The reagent table shows the measured amount of each
+  chemical (the planned one, marked, when nothing was measured), its properties and its hazards: pictograms, signal
+  word, H-codes (full statements listed once below the table), flash point, DOT, NFPA and reactivity alerts. A
+  multi-step experiment has an overall scheme and then one chapter per step with its own scheme, reagents, procedure,
+  log and yield.
 - Works without PubChem Local too: all data can be entered by hand.
 
-Single user, no login. Intended for your LAN; the layout works on tablets and phones.
+Single user, no login. Intended for your LAN or Tailscale; the layout adapts from laptop (procedure and log side by
+side) to phone (log entries under each procedure step, compact log bar). Keeping the screen awake and timer
+notifications need HTTPS (e.g. Tailscale Serve) or localhost; sound and vibration alerts work everywhere.
 
 ## Install on Unraid
 
@@ -27,11 +52,34 @@ Single user, no login. Intended for your LAN; the layout works on tablets and ph
    wget -O /boot/config/plugins/dockerMan/templates-user/my-lab-notebook.xml https://raw.githubusercontent.com/mcaragon/lab-notebook/main/unraid/lab-notebook.xml
    ```
 3. Docker → Add Container → pick **lab-notebook** from the template list.
-4. Set **PubChem Local URL**:
-   - `http://<unraid-ip>:55055` (Unraid IP + PubChem Local's host port), or
-   - `http://pubchem-local:8080` if both containers are on the same custom Docker network (container name +
-     container port).
-5. Open the Web UI (default host port 55056). The header shows whether PubChem Local is reachable.
+4. Set **PubChem Local URL** to match how the two containers are networked (see below).
+5. Open the Web UI (default host port 55056). The header shows whether PubChem Local is reachable; hover over it to
+   see the error if it is not.
+
+### Connecting to PubChem Local
+
+| Network setup | PubChem Local URL |
+| --- | --- |
+| Both containers on Unraid's default `bridge` network (simplest) | `http://<unraid-ip>:55055` (Unraid IP + PubChem Local's **host** port) |
+| Both containers on the same **custom** network, e.g. one made with `docker network create chem` | `http://pubchem-local:8080` (container **name** + **container** port) |
+| PubChem Local's network type set to **Container: lab-notebook** (shares lab-notebook's network, e.g. to reach both through lab-notebook's Tailscale) | `http://localhost:8080` |
+
+Container names like `pubchem-local` only resolve on a custom network, never on the default `bridge` network.
+
+When PubChem Local shares lab-notebook's network (*Container: lab-notebook*):
+
+- Both apps answer on lab-notebook's addresses, including its Tailscale MagicDNS name: the notebook on port 8000 and
+  PubChem Local on port 8080 (on Tailscale, use the container ports).
+- PubChem Local's own port mappings no longer apply. To reach its web UI from the LAN, add a port to
+  **lab-notebook's** template: container port 8080 → host port 55055.
+- When lab-notebook is restarted, updated or edited, restart PubChem Local too. It is attached to the old network
+  until it is restarted, and the notebook then shows "PubChem Local offline".
+
+To check the connection from the Unraid terminal:
+
+```bash
+docker exec lab-notebook python -c "import os, urllib.request; print(urllib.request.urlopen(os.environ['PUBCHEM_URL'] + '/api/health').read())"
+```
 
 Back up `/mnt/user/appdata/lab-notebook` (a single SQLite file, `notebook.sqlite`).
 
@@ -60,15 +108,29 @@ All amounts are in g, mL, mmol and °C. Each row has one **entered** value (bold
 | Solution (wt %) | mass of solution | volume of solution (needs solution density) | molar mass, wt % |
 
 - A neat compound that is solid at room temperature (mp above 25 °C) gets no calculated volume.
-- **Equivalents** are relative to the reference reagent (radio button), by default the first reactant with an amount.
-- The **limiting reactant** is the *reactant* with the smallest mmol ÷ coefficient. Reagents, catalysts and solvents
-  never limit the yield, so give the role *Reactant* only to the compounds that end up in the product.
+- Each row has a **planned** amount and, once weighed or measured, an **actual** amount (g or mL). Wherever an
+  actual amount exists it is used for the limiting reagent, the theoretical yield and the percent yield.
+- **Equivalents** are relative to the reference reagent ("Use as 1 equiv"), by default the first starting material
+  with an amount.
+- The **limiting reactant** is the *starting material* with the smallest mmol ÷ coefficient. Reagents, catalysts and
+  solvents never limit the yield, so put only the compounds that end up in the product under Starting materials.
 - **Theoretical yield** = limiting mmol ÷ its coefficient × product coefficient × product molar mass.
-  **Percent yield** uses the isolated mass (× product purity, if set).
+  **Percent yield** uses the isolated mass (× product purity, if set). The **overall yield** of a multi-step
+  experiment is the product of the step yields.
 
 Physical properties from PubChem Local are the median of all PubChem source values at standard conditions. Check
 them, especially for salts, hydrates and solutions: for example, PubChem's "hydrochloric acid" has the density of
 HCl itself, not of 37 % aqueous HCl.
+
+## Structures and hazard data
+
+All structure drawings come from PubChem Local: by CID for every compound it knows, and for compounds entered by hand
+with a SMILES string from `GET /api/depict?smiles=…&width=…&height=…&theme=light|dark` (returning SVG) if PubChem
+Local provides that endpoint. Until it does, hand-entered compounds are shown without a structure.
+
+GHS data comes from the lab summary; DOT, NFPA 704 and reactivity alerts come from PubChem Local's safety summary
+(LCSS). Compounds without an LCSS record (for example silver fulminate) have no hazard data in PubChem Local; use the
+"Additional hazard information" field of the reagent, which is printed in the report's safety table.
 
 ## Development
 
@@ -102,11 +164,14 @@ Debian/Ubuntu). Without it, PDF export returns HTTP 501 and the other formats st
 | Path | Contents |
 | --- | --- |
 | `labnotebook/app.py` | FastAPI app: JSON API, PubChem Local proxy, report downloads, frontend |
-| `labnotebook/stoich.py` | Stoichiometry calculations (pure functions) |
-| `labnotebook/db.py` | SQLite storage |
-| `labnotebook/pubchem.py` | PubChem Local REST client |
+| `labnotebook/stoich.py` | Stoichiometry: planned/actual amounts, limiting reagent, yields (pure functions) |
+| `labnotebook/actions.py` | Log actions: fields and the sentences they produce |
+| `labnotebook/scheme.py`, `templates/scheme.html` | Reaction scheme layout and `@` mentions |
+| `labnotebook/hazards.py` | DOT / NFPA / reactivity data from the safety summary |
+| `labnotebook/db.py` | SQLite storage (schema version 2; version 1 databases are migrated on start) |
+| `labnotebook/pubchem.py`, `structures.py` | PubChem Local REST client and structure images |
 | `labnotebook/report.py`, `templates/report.html` | Markdown / HTML / PDF reports |
-| `labnotebook/static/` | Single-page frontend (vanilla JS, no build step) |
+| `labnotebook/static/js/` | Frontend modules (vanilla JS, no build step) |
 | `unraid/` | Unraid template and icon |
 
 The browser talks only to this app; it proxies PubChem Local (autocomplete, structures, GHS pictograms), so

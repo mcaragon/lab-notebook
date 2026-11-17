@@ -126,5 +126,10 @@ class PubChemClient:
         return self._binary(f"/api/compound/{int(cid)}/structure.svg",
                             {"width": int(width), "height": int(height), "theme": theme})
 
+    def depict_svg(self, smiles: str, width: int = 300, height: int = 240, theme: str = "light"):
+        """Structure from a SMILES string, if this PubChem Local has a ``/api/depict`` endpoint (None otherwise)."""
+        return self._binary("/api/depict", {"smiles": smiles, "width": int(width), "height": int(height),
+                                            "theme": theme})
+
     def ghs_svg(self, code: str):
         return self._binary(f"/static/ghs/{code}.svg")

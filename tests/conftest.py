@@ -26,6 +26,9 @@ def mock_pubchem(request: httpx.Request) -> httpx.Response:
     if path.startswith("/api/compound/"):
         parts = path.split("/")
         cid = parts[3]
+        if path.endswith("/safety-summary"):
+            rec = RECORDED.get("safety:" + cid)
+            return httpx.Response(200, json=rec) if rec else httpx.Response(404)
         if path.endswith("/lab"):
             rec = RECORDED.get("lab:" + cid)
             return httpx.Response(200, json=rec) if rec else httpx.Response(404)

@@ -552,5 +552,2560 @@
   "counts": {
    "lab_safety_records": 256927
   }
+ },
+ "safety:887": {
+  "cid": 887,
+  "title": "Methanol",
+  "sections": [
+   {
+    "heading": "Hazard Classification",
+    "sections": [
+     {
+      "heading": "GHS Classification",
+      "entries": [
+       {
+        "name": "Pictogram(s)",
+        "value": "Flammable (GHS02); Acute Toxic (GHS06); Health Hazard (GHS08)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H370 **: Causes damage to organs [Danger Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P233, P240, P241, P242, P243, P260, P261, P262, P264, P270, P271, P280, P301+P316, P302+P352, P303+P361+P353, P304+P340, P308+P316, P316, P321, P330, P361+P364, P370+P378, P403+P233, P403+P235, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Note",
+        "value": "This chemical does not meet GHS hazard criteria for < 0.1% (4  of 7623) of reports.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Flammable (GHS02); Acute Toxic (GHS06); Health Hazard (GHS08)",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H225 (> 99.9%): Highly Flammable liquid and vapor [Danger Flammable liquids]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301 (99.9%): Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311 (99.9%): Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331 (99.4%): Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H370 (> 99.9%): Causes damage to organs [Danger Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P233, P240, P241, P242, P243, P260, P261, P262, P264, P270, P271, P280, P301+P316, P302+P352, P303+P361+P353, P304+P340, P308+P316, P316, P321, P330, P361+P364, P370+P378, P403+P233, P403+P235, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "Aggregated GHS information provided per 7623 reports by companies from 149 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "Reported as not meeting GHS hazard criteria per 4 of 7623 reports by companies.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "There are 148 notifications provided by 7619 of 7623 reports by companies with hazard statement code(s).",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown. For more detailed information, please visit  ECHA C&L website.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=200-659-6"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Flammable (GHS02); Irritant (GHS07); Health Hazard (GHS08)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H360: May damage fertility or the unborn child [Danger Reproductive toxicity]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H372: Causes damage to organs through prolonged or repeated exposure [Danger Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P203, P210, P233, P240, P241, P242, P243, P260, P261, P264, P264+P265, P270, P271, P280, P301+P317, P303+P361+P353, P304+P340, P305+P351+P338, P308+P316, P318, P319, P321, P330, P337+P317, P370+P378, P403+P233, P403+P235, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/09-mhlw-2012e.html"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Flammable (GHS02); Irritant (GHS07); Health Hazard (GHS08)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H303: May be harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H360: May damage fertility or the unborn child [Danger Reproductive toxicity]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H372: Causes damage to organs through prolonged or repeated exposure [Danger Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P203, P210, P233, P240, P241, P242, P243, P260, P261, P264, P264+P265, P270, P271, P280, P301+P317, P303+P361+P353, P304+P340, P305+P351+P338, P308+P316, P318, P319, P321, P337+P317, P370+P378, P403+P233, P403+P235, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0609e.html"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Flammable (GHS02); Acute Toxic (GHS06); Health Hazard (GHS08)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P233, P240, P241, P242, P243, P260, P261, P262, P264, P270, P271, P280, P301+P316, P302+P352, P303+P361+P353, P304+P340, P308+P316, P316, P321, P330, P361+P364, P370+P378, P403+P233, P403+P235, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2848"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Flammable (GHS02); Acute Toxic (GHS06); Health Hazard (GHS08)",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H225: Highly Flammable liquid and vapor [Danger Flammable liquids]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H370: Causes damage to organs [Danger Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P233, P240, P241, P242, P243, P260, P261, P262, P264, P270, P271, P280, P301+P316, P302+P352, P303+P361+P353, P304+P340, P308+P316, P316, P321, P330, P361+P364, P370+P378, P403+P233, P403+P235, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       }
+      ]
+     },
+     {
+      "heading": "NFPA Hazard Classification",
+      "entries": [
+       {
+        "name": "NFPA 704 Diamond",
+        "value": "1-3-0",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "NFPA Health Rating",
+        "value": "1 - Materials that, under emergency conditions, can cause significant irritation.",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "NFPA Fire Rating",
+        "value": "3 - Liquids and solids that can be ignited under almost all ambient temperature conditions. Materials produce hazardous atmospheres with air under almost all ambient temperatures or, though unaffected by ambient temperatures, are readily ignited under almost all conditions.",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "NFPA Instability Rating",
+        "value": "0 - Materials that in themselves are normally stable, even under fire conditions.",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": "NFPA 704 Diamond",
+        "value": "1-3-0",
+        "note": null,
+        "source": "Occupational Safety and Health Administration (OSHA)",
+        "url": "https://www.osha.gov/chemicaldata/474"
+       },
+       {
+        "name": "NFPA Health Rating",
+        "value": "1 - Materials that, under emergency conditions, can cause significant irritation.",
+        "note": null,
+        "source": "Occupational Safety and Health Administration (OSHA)",
+        "url": "https://www.osha.gov/chemicaldata/474"
+       },
+       {
+        "name": "NFPA Fire Rating",
+        "value": "3 - Liquids and solids that can be ignited under almost all ambient temperature conditions. Materials produce hazardous atmospheres with air under almost all ambient temperatures or, though unaffected by ambient temperatures, are readily ignited under almost all conditions.",
+        "note": null,
+        "source": "Occupational Safety and Health Administration (OSHA)",
+        "url": "https://www.osha.gov/chemicaldata/474"
+       },
+       {
+        "name": "NFPA Instability Rating",
+        "value": "0 - Materials that in themselves are normally stable, even under fire conditions.",
+        "note": null,
+        "source": "Occupational Safety and Health Administration (OSHA)",
+        "url": "https://www.osha.gov/chemicaldata/474"
+       }
+      ]
+     },
+     {
+      "heading": "DOT Hazard Classification",
+      "entries": [
+       {
+        "name": "Substance (Descriptions/Shipping Name)",
+        "value": "Methanol",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "DOT ID (UN/NA Number)",
+        "value": "UN1230",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Division",
+        "value": "Class 3 Flammable and combustible liquid (49 eCFR \u00a7 173.120)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Label Codes",
+        "value": "Class 3 Flammable and combustible liquid (49 eCFR \u00a7 173.120)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Label Codes",
+        "value": "Div 6.1 Poisonous materials (49 eCFR \u00a7 173.132)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Packing Group",
+        "value": "PG II: the degree of danger presented by the material is medium",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Packing Group",
+        "value": "For more information about the packing group assignment, please visit 49 eCFR \u00a7 173",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Placard/Label(s)",
+        "value": "Flammable Liquid; Poison, PG I II",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Notes",
+        "value": "Symbol +: Fixes the proper shipping name, hazard class and packing group for that entry",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Notes",
+        "value": "Symbol I: The proper shipping names which are appropriate for describing materials in international transportation",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Substance (Descriptions/Shipping Name)",
+        "value": "Methanol",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "DOT ID (UN/NA Number)",
+        "value": "UN1230",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Label Code(s)",
+        "value": "Class 3 Flammable and combustible liquid (49 eCFR \u00a7 173.120)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Packing Group",
+        "value": "PG II: the degree of danger presented by the material is medium",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Packing Group",
+        "value": "For more information about the packing group assignment, please visit 49 eCFR \u00a7 173",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Placard/Label(s)",
+        "value": "Flammable Liquid",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Notes",
+        "value": "Symbol D: The proper shipping name which is appropriate for describing material for domestic transportation",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "heading": "Stability and Reactivity",
+    "sections": [
+     {
+      "heading": "Physical Dangers",
+      "entries": [
+       {
+        "name": null,
+        "value": "The vapour mixes well with air, explosive mixtures are easily formed.",
+        "note": null,
+        "source": "ILO-WHO International Chemical Safety Cards (ICSCs)",
+        "url": "https://chemicalsafety.ilo.org/dyn/icsc/showcard.display?p_card_id=0057"
+       },
+       {
+        "name": null,
+        "value": "- Methanol vapors may be heavier than air. They will spread along the ground and collect and stay in poorly-ventilated, low-lying, or confined areas (e.g., sewers, basements, and tanks).",
+        "note": null,
+        "source": "The National Institute for Occupational Safety and Health (NIOSH)",
+        "url": "https://www.cdc.gov/niosh/ershdb/emergencyresponsecard_29750029.html"
+       },
+       {
+        "name": null,
+        "value": "- Hazardous concentrations may develop quickly in enclosed, poorly-ventilated, or low-lying areas. Keep out of these areas. Stay upwind.",
+        "note": null,
+        "source": "The National Institute for Occupational Safety and Health (NIOSH)",
+        "url": "https://www.cdc.gov/niosh/ershdb/emergencyresponsecard_29750029.html"
+       },
+       {
+        "name": null,
+        "value": "- Liquid agent is lighter than water.",
+        "note": null,
+        "source": "The National Institute for Occupational Safety and Health (NIOSH)",
+        "url": "https://www.cdc.gov/niosh/ershdb/emergencyresponsecard_29750029.html"
+       }
+      ]
+     },
+     {
+      "heading": "Chemical Dangers",
+      "entries": [
+       {
+        "name": null,
+        "value": "Reacts violently with strong oxidants, acids and reducing agents. This generates fire and explosion hazard.",
+        "note": null,
+        "source": "ILO-WHO International Chemical Safety Cards (ICSCs)",
+        "url": "https://chemicalsafety.ilo.org/dyn/icsc/showcard.display?p_card_id=0057"
+       },
+       {
+        "name": null,
+        "value": "- Methanol reacts violently with strong oxidants, causing a fire and explosion hazard.",
+        "note": null,
+        "source": "The National Institute for Occupational Safety and Health (NIOSH)",
+        "url": "https://www.cdc.gov/niosh/ershdb/emergencyresponsecard_29750029.html"
+       }
+      ]
+     },
+     {
+      "heading": "Reactivity Profile",
+      "entries": [
+       {
+        "name": null,
+        "value": "METHANOL reacts violently with acetyl bromide [Merck 11th ed. 1989]. Mixtures with concentrated sulfuric acid and concentrated hydrogen peroxide can cause explosions. Reacts with hypochlorous acid either in water solution or mixed water/carbon tetrachloride solution to give methyl hypochlorite, which decomposes in the cold and may explode on exposure to sunlight or heat. Gives the same product with chlorine. Can react explosively with isocyanates under basic conditions. The presence of an inert solvent mitigates this reaction [Wischmeyer 1969]. A violent exothermic reaction occurred between methyl alcohol and bromine in a mixing cylinder [MCA Case History 1863. 1972]. A flask of anhydrous lead perchlorate dissolved in methanol exploded when it was disturbed [J. Am. Chem. Soc. 52:2391. 1930]. P4O6 reacts violently with methanol. (Thorpe, T. E. et al., J. Chem. Soc., 1890, 57, 569-573). Ethanol or methanol can ignite on contact with a platinum-black catalyst. (Urben 1794).",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/3874"
+       },
+       {
+        "name": null,
+        "value": "METHANOL, TALLOW ALKYL IMINOBISETHANOL is a mixture of an alcohol with an organic compound containing both amine and alcohol substituents. Amines are chemical bases. They neutralize acids to form salts plus water. These acid-base reactions are exothermic. The amount of heat that is evolved per mole of amine in a neutralization is largely independent of the strength of the amine as a base. Amines may be incompatible with isocyanates, halogenated organics, peroxides, phenols (acidic), epoxides, anhydrides, and acid halides. Flammable gaseous hydrogen is generated by amines in combination with strong reducing agents, such as hydrides.",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/22331"
+       }
+      ]
+     },
+     {
+      "heading": "Hazardous Reactivities and Incompatibilities",
+      "entries": [
+       {
+        "name": null,
+        "value": "Incompatible materials: Acid chlorides, acid anhydrides, oxidizing agents, alkali metals, reducing agents, acids.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": null,
+        "value": "Distillation of mixtures with C1-C3 alcohols gives highly explosive alkyl perchlorates. /Barium perchlorate/",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": null,
+        "value": "During hydrogenation of an unspecified substrate in methanol solution under hydrogen at 100 bar with Raney nickel catalyst, sudden temperature increase led to hydrogenolysis of methanol to methane, and the pressure increase led to an overpressure accident. Such incidents may be avoided by control of agitation, limiting the amount of catalyst, and checking thermal stability of starting materials and end products beforehand.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": null,
+        "value": "Can react vigorously with oxidizing materials.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": null,
+        "value": "For more Hazardous Reactivities and Incompatibilities (Complete) data for Methanol (25 total), please visit the HSDB record page.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/93"
+       },
+       {
+        "name": null,
+        "value": "Strong oxidizers",
+        "note": null,
+        "source": "The National Institute for Occupational Safety and Health (NIOSH)",
+        "url": "https://www.cdc.gov/niosh/npg/npgd0397.html"
+       }
+      ]
+     },
+     {
+      "heading": "Air and Water Reactions",
+      "entries": [
+       {
+        "name": null,
+        "value": "Highly flammable. Soluble in water in all proportions.",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/3874"
+       },
+       {
+        "name": null,
+        "value": "Highly flammable. Soluble in water.",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/22331"
+       }
+      ]
+     },
+     {
+      "heading": "Reactive Group",
+      "entries": [
+       {
+        "name": null,
+        "value": "Alcohols and Polyols",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/3874"
+       },
+       {
+        "name": null,
+        "value": "Alcohols and Polyols",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/22331"
+       },
+       {
+        "name": null,
+        "value": "Amines, Phosphines, and Pyridines",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/22331"
+       }
+      ]
+     },
+     {
+      "heading": "Reactivity Alerts",
+      "entries": [
+       {
+        "name": null,
+        "value": "Highly Flammable",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/3874"
+       },
+       {
+        "name": null,
+        "value": "Highly Flammable",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/22331"
+       }
+      ]
+     },
+     {
+      "heading": "CSL Reaction Information",
+      "entries": [
+       {
+        "name": "CSL No",
+        "value": "CSL00025",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + NITRIC OXIDE",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "vapor can ignite in the presence of a spark",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Flammable",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "ACS Safety Letters",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "7/8/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "2/14/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00027",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + PALLADIUM",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "Palladium on carbon (10%) is highly pyrophoric under hydrogen atmosphere and to some extent in air. Palladium on carbon (Pd/C) frequently ignites when it first comes in contact with methanol (and to a lesser extent, any flammable organic solvent) and as such represents a significant safety risk.",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Pyrophoric",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reaction Scale",
+        "value": "M (up to 100g)",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Additional Information",
+        "value": "Addition of Pd/C (10% wet) to the reaction flask containing hydrogen atmospehere (additional catalyst addition to the ongoing reaction in 100 mL methanol) resulted is small fire.",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "5/31/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "3/17/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00028",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + 1-acetoxyethyl bromide",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "A significant amount of heat and gas was generated upon the addition of methanol to 1-acetoxyethyl bromide at 25\u00c2\u00b0",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Gas Emitter",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reaction Scale",
+        "value": "Not Available",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "5/31/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "3/23/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00044",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + Precious metal catalysts",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "Risk of fire in the presence of air",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Flammable",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reaction Class",
+        "value": "Hydrogenation",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "5/31/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "4/20/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00051",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + boron tribromide",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "Quenching a small amount of boron tribromide into methanol resulted in significant exotherm and ignition. Boron tribromide should be quenched by diluting in an inert solvent (hexanes, dichloromethane) and then slowly pouring over ice.",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Flammable,Water Reactive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "5/24/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "12/5/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00068",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + NITRIC ACID",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "Potentially explosive in the presence of polar molecules",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Explosive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "7/8/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "6/27/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00077",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + 5-METHYLISOXAZOLE + SODIUM HYDROXIDE",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "potentially explosive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Explosive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "7/8/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "6/27/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00094",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "METHANOL + CHLORINE",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "Potentially explosive in the presence of alcohols",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Explosive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "User-Reported",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "7/8/18",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "8/8/17",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00197",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "Sodium azide + Methanol",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "\"Robert Seibert's letter contains an interesting account of an explosion that involved sodium azide (NaN3) in the late 1940s (C&EN, Nov. 9, 2009, page 8). Following the dreadful accident, Seibert remembers remarking that the explosion must have been caused by wet methanol and warns about the dangers of adding sodium azide to wet methanol.  Because no further details about the contents of the reactor are given, there is nothing I can say about it but to clarify that NaN3 does not form explosive compounds when dissolved in water. Besides its toxicity, the danger associated with NaN3 is its ability to form explosive azides when reacted with heavy metals such as lead, copper, zinc, cadmium, or nickel.\" (reprint of the full-text)",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Explosive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Functional Group",
+        "value": "Azide",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reaction Class",
+        "value": "Azide",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "DOI Link",
+        "value": "10.1021/cen-v088n002.p004",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "Literature Reference",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "10/15/2022",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "10/15/2022",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "CSL No",
+        "value": "CSL00200",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reactants/Reagents",
+        "value": "Nitric oxide + Nitrous oxide + Methanol",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Warning Message",
+        "value": "\"Chemists at Merck & Co. were performing experiments using nitric oxide at high pressure (10\u201320 bar) when two instances of an explosion occurred during rapid depressurization of the NO headspace from a 500-mL closed reactor system. No injuries occurred, and damage was contained to the barricaded cell area. Both before and in between these events, NO had been used successfully about 100 times. Each explosion occurred after completion of the reaction, while venting through three-eighths- or one-quarter-inch i.d. Teflon-lined steel-braided tubing to atmospheric pressure.  Static electricity was suspected as the ignition source that, in conjunction with the presence of an oxidant (NO) and fuel (CH3OH), would lead to combustion. To confirm this hypothesis, an investigation was conducted. Preliminary results are communicated here.  The reaction system consisted of NO in conjunction with methanol under basic conditions. A literature search didn\u2019t point to any existing cautionary notes about this reaction. Experimental ignition testing of NO systems was conducted by Fauske & Associates, which showed no combustion unless ignition energy greater than 3 J was used. This exceeds the energy typical of a static discharge, so it does not fully explain the observed combustion. Further analysis of the reaction headspace using gas chromatography/mass spectrometry revealed that N2O was formed over time from a simple model system of NO + sodium methoxide + methanol. The conversion of NO to N2O and concomitant oxidation of methanol to formic acid proceeds to 50% in about six hours. Testing showed the energy needed to ignite the headspace of methanol under 1 bar of 50/50 NO/N2O is less than 3 mJ, several orders of magnitude lower than for similar systems without N2O. On the basis of these results, the likely cause of the explosions is the combination of (a) formation of N2O gas and (b) generation of static potential caused by the rapid flow of gas and condensing methanol through the Teflon-lined tubing during rapid depressurization (while venting), which leads to sparking of sufficient energy to cause the combustible vapor to ignite.  We wanted to alert the chemical process industry to risks associated with this particular procedure. Anyone contemplating use of this chemistry should thoroughly evaluate its safety. \" (reprint of full text)",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "GHS Category",
+        "value": "Explosive",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reaction Scale",
+        "value": "Medium (up to 100g)",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "DOI Link",
+        "value": "10.1021/cen-09005-letters",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Reference Source",
+        "value": "Literature Reference",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Modified Date",
+        "value": "10/19/2022",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       },
+       {
+        "name": "Create Date",
+        "value": "10/19/2022",
+        "note": null,
+        "source": "Pistoia Alliance Chemical Safety Library",
+        "url": "https://safescience.cas.org/"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "safety:11022444": {
+  "cid": 11022444,
+  "title": "Bis(fulminato-kappaC)mercury",
+  "sections": [
+   {
+    "heading": "Hazard Classification",
+    "sections": [
+     {
+      "heading": "GHS Classification",
+      "entries": [
+       {
+        "name": "Pictogram(s)",
+        "value": "Explosive (GHS01); Acute Toxic (GHS06); Health Hazard (GHS08); Environmental Hazard (GHS09)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H200: (Deleted) Unstable Explosive [Danger Explosives]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H373 **: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P201, P202, P260, P261, P262, P264, P270, P271, P273, P280, P281, P301+P316, P302+P352, P304+P340, P316, P319, P321, P330, P361+P364, P372, P373, P380, P391, P401, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Explosive (GHS01); Acute Toxic (GHS06); Health Hazard (GHS08); Environmental Hazard (GHS09)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H201: (Deleted) Explosive; mass explosion hazard [Danger Explosives]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H373 **: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P230, P240, P250, P260, P261, P262, P264, P270, P271, P273, P280, P301+P316, P302+P352, P304+P340, P316, P319, P321, P330, P361+P364, P370+P380, P372, P373, P391, P401, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Explosive (GHS01); Acute Toxic (GHS06); Health Hazard (GHS08); Environmental Hazard (GHS09)",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H200 (100%): (Deleted) Unstable Explosive [Danger Explosives]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301 (100%): Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311 (100%): Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331 (100%): Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H373 (100%): May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H400 (100%): Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H410 (100%): Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P201, P202, P260, P261, P262, P264, P270, P271, P273, P280, P281, P301+P316, P302+P352, P304+P340, P316, P319, P321, P330, P361+P364, P372, P373, P380, P391, P401, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "The GHS information provided by 1 company from 1 notification to the ECHA C&L Inventory.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=211-057-8"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Explosive (GHS01); Irritant (GHS07); Health Hazard (GHS08)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H200: (Deleted) Unstable Explosive [Danger Explosives]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H315: Causes skin irritation [Warning Skin corrosion/irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H341: Suspected of causing genetic defects [Warning Germ cell mutagenicity]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P201, P202, P203, P264, P264+P265, P280, P281, P302+P352, P305+P351+P338, P318, P321, P332+P317, P337+P317, P362+P364, P372, P373, P380, P401, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/07-mhlw-0010e.html"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Explosive (GHS01); Acute Toxic (GHS06); Health Hazard (GHS08); Environmental Hazard (GHS09)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H200: (Deleted) Unstable Explosive [Danger Explosives]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P201, P202, P260, P261, P262, P264, P270, P271, P273, P280, P281, P301+P316, P302+P352, P304+P340, P316, P319, P321, P330, P361+P364, P372, P373, P380, P391, P401, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=2828"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Explosive (GHS01); Acute Toxic (GHS06); Health Hazard (GHS08); Environmental Hazard (GHS09)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H201: (Deleted) Explosive; mass explosion hazard [Danger Explosives]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P230, P240, P250, P260, P261, P262, P264, P270, P271, P273, P280, P301+P316, P302+P352, P304+P340, P316, P319, P321, P330, P361+P364, P370+P380, P372, P373, P391, P401, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=4860"
+       }
+      ]
+     },
+     {
+      "heading": "DOT Hazard Classification",
+      "entries": [
+       {
+        "name": "Substance (Descriptions/Shipping Name)",
+        "value": "Fulminate of mercury (dry)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Label Code(s)",
+        "value": "Forbidden explosives/materials (49 eCFR \u00a7 173.54/\u00a7 173.21)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Substance (Descriptions/Shipping Name)",
+        "value": "Fulminating mercury",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Label Code(s)",
+        "value": "Forbidden explosives/materials (49 eCFR \u00a7 173.54/\u00a7 173.21)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Substance (Descriptions/Shipping Name)",
+        "value": "Mercury fulminate, wetted with not less than 20 percent water, or mixture of alcohol and water, by mass",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "DOT ID (UN/NA Number)",
+        "value": "UN0135",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Label Code(s)",
+        "value": "Div 1.1 Explosives (with a mass explosion hazard) (49 eCFR \u00a7 173.50)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Label Code(s)",
+        "value": "Compatibility group A: Primary explosive substance",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Placard/Label(s)",
+        "value": "Explosive 1.1",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "heading": "Stability and Reactivity",
+    "sections": [
+     {
+      "heading": "Reactivity Profile",
+      "entries": [
+       {
+        "name": null,
+        "value": "Contact with sulfuric acid causes explosion, [Urbanski, 1967, vol. 3, 135, 149]. Aqueous ammonia and Hg react to form an explosive solid, likely a fulminate. (Thodos, G. Amer. Inst. Chen. Engrs. J., 1964, 10, 274.).",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/2020"
+       }
+      ]
+     },
+     {
+      "heading": "Hazardous Reactivities and Incompatibilities",
+      "entries": [
+       {
+        "name": null,
+        "value": "Incompatible with sulfuric acid.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/6051"
+       }
+      ]
+     },
+     {
+      "heading": "Air and Water Reactions",
+      "entries": [
+       {
+        "name": null,
+        "value": "No rapid reaction with air. No rapid reaction with water.",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/2020"
+       }
+      ]
+     },
+     {
+      "heading": "Reactive Group",
+      "entries": [
+       {
+        "name": null,
+        "value": "Cyanides, Inorganic",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/2020"
+       },
+       {
+        "name": null,
+        "value": "Water and Aqueous Solutions",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/2020"
+       }
+      ]
+     },
+     {
+      "heading": "Reactivity Alerts",
+      "entries": [
+       {
+        "name": null,
+        "value": "Explosive",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/2020"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "safety:240": {
+  "cid": 240,
+  "title": "Benzaldehyde",
+  "sections": [
+   {
+    "heading": "Hazard Classification",
+    "sections": [
+     {
+      "heading": "GHS Classification",
+      "entries": [
+       {
+        "name": "Pictogram(s)",
+        "value": "Irritant (GHS07)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Signal",
+        "value": "Warning",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P264, P270, P301+P317, P330, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Regulation (EC) No 1272/2008 of the European Parliament and of the Council",
+        "url": "https://eur-lex.europa.eu/eli/reg/2008/1272/oj"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Irritant (GHS07)",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "Signal",
+        "value": "Warning",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302 (100%): Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H319 (22.1%): Causes serious eye irritation [Warning Serious eye damage/eye irritation]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H332 (23.4%): Harmful if inhaled [Warning Acute toxicity, inhalation]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H336 (14.9%): May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P261, P264, P264+P265, P270, P271, P280, P301+P317, P304+P340, P305+P351+P338, P317, P319, P330, P337+P317, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "Aggregated GHS information provided per 3000 reports by companies from 52 notifications to the ECHA C&L Inventory. Each notification may be associated with multiple companies.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "ECHA C&L Notifications Summary",
+        "value": "Information may vary between notifications depending on impurities, additives, and other factors. The percentage value in parenthesis indicates the notified classification ratio from companies that provide hazard codes. Only hazard codes with percentage values above 10% are shown. For more detailed information, please visit  ECHA C&L website.",
+        "note": null,
+        "source": "European Chemicals Agency (ECHA)",
+        "url": "https://chem.echa.europa.eu/substance-search?searchText=202-860-4"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Irritant (GHS07); Health Hazard (GHS08)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "Signal",
+        "value": "Warning",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H227: Combustible liquid [Warning Flammable liquids]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H319: Causes serious eye irritation [Warning Serious eye damage/eye irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H371: May cause damage to organs [Warning Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H373: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H412: Harmful to aquatic life with long lasting effects [Hazardous to the aquatic environment, long-term hazard]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P260, P261, P264, P264+P265, P270, P271, P273, P280, P301+P317, P304+P340, P305+P351+P338, P308+P316, P319, P330, P337+P317, P370+P378, P403, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/15-meti-0030e.html"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Irritant (GHS07); Health Hazard (GHS08)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H227: Combustible liquid [Warning Flammable liquids]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H315: Causes skin irritation [Warning Skin corrosion/irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H317: May cause an allergic skin reaction [Warning Sensitization, Skin]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H320: Causes eye irritation [Warning Serious eye damage/eye irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H335: May cause respiratory irritation [Warning Specific target organ toxicity, single exposure; Respiratory tract irritation]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H336: May cause drowsiness or dizziness [Warning Specific target organ toxicity, single exposure; Narcotic effects]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H371: May cause damage to organs [Warning Specific target organ toxicity, single exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H372: Causes damage to organs through prolonged or repeated exposure [Danger Specific target organ toxicity, repeated exposure]",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P260, P261, P264, P264+P265, P270, P271, P272, P280, P301+P317, P302+P352, P304+P340, P305+P351+P338, P308+P316, P319, P321, P330, P332+P317, P333+P317, P337+P317, P362+P364, P370+P378, P403, P403+P233, P405, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "NITE-CMC",
+        "url": "https://www.chem-info.nite.go.jp/chem/english/ghs/06-imcg-0481e.html"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Irritant (GHS07)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=358"
+       },
+       {
+        "name": "Signal",
+        "value": "Warning",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=358"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=358"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H332: Harmful if inhaled [Warning Acute toxicity, inhalation]",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=358"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P261, P264, P270, P271, P301+P317, P304+P340, P317, P330, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Hazardous Chemical Information System (HCIS), Safe Work Australia",
+        "url": "https://hcis-old.safeworkaustralia.gov.au/HazardousChemical/Details?chemicalID=358"
+       },
+       {
+        "name": "Pictogram(s)",
+        "value": "Irritant (GHS07); Health Hazard (GHS08)",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "Signal",
+        "value": "Danger",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H227: Combustible liquid [Warning Flammable liquids]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H302: Harmful if swallowed [Warning Acute toxicity, oral]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H312: Harmful in contact with skin [Warning Acute toxicity, dermal]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H315: Causes skin irritation [Warning Skin corrosion/irritation]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H317: May cause an allergic skin reaction [Warning Sensitization, Skin]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H334: May cause allergy or asthma symptoms or breathing difficulties if inhaled [Danger Sensitization, respiratory]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "GHS Hazard Statements",
+        "value": "H401: Toxic to aquatic life [Hazardous to the aquatic environment, acute hazard]",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "Precautionary Statement Codes",
+        "value": "P210, P233, P260, P261, P264, P270, P271, P272, P273, P280, P284, P301+P317, P302+P352, P304+P340, P317, P321, P330, P332+P317, P333+P317, P342+P316, P362+P364, P370+P378, P403, and P501 (click each P-code to see the statement)",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       }
+      ]
+     },
+     {
+      "heading": "NFPA Hazard Classification",
+      "entries": [
+       {
+        "name": "NFPA 704 Diamond",
+        "value": "1-2-0",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "NFPA Health Rating",
+        "value": "1 - Materials that, under emergency conditions, can cause significant irritation.",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "NFPA Fire Rating",
+        "value": "2 - Materials that must be moderately heated or exposed to relatively high ambient temperatures before ignition can occur. Materials would not under normal conditions form hazardous atmospheres with air, but under high ambient temperatures or under moderate heating could release vapor in sufficient quantities to produce hazardous atmospheres with air.",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": "NFPA Instability Rating",
+        "value": "0 - Materials that in themselves are normally stable, even under fire conditions.",
+        "note": null,
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       }
+      ]
+     },
+     {
+      "heading": "DOT Hazard Classification",
+      "entries": [
+       {
+        "name": "Substance (Descriptions/Shipping Name)",
+        "value": "Benzaldehyde",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "DOT ID (UN/NA Number)",
+        "value": "UN1990",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Hazard Class/Label Code(s)",
+        "value": "Class 9 Miscellaneous hazardous material (49 eCFR \u00a7 173.140)",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Packing Group",
+        "value": "PG III: the degree of danger presented by the material is minor",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Packing Group",
+        "value": "For more information about the packing group assignment, please visit 49 eCFR \u00a7 173",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Placard/Label(s)",
+        "value": "Class 9",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       },
+       {
+        "name": "Notes",
+        "value": "Symbol +: Fixes the proper shipping name, hazard class and packing group for that entry",
+        "note": null,
+        "source": "US Code of Federal Regulations, Hazardous Materials, 49 CFR Part 172",
+        "url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-I/subchapter-C/part-172/subpart-B/section-172.101"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "heading": "Stability and Reactivity",
+    "sections": [
+     {
+      "heading": "Chemical Dangers",
+      "entries": [
+       {
+        "name": null,
+        "value": "The substance can form explosive peroxides under special conditions. Reacts violently with aluminium, bases, iron, oxidants and phenol. This generates fire and explosion hazard.",
+        "note": null,
+        "source": "ILO-WHO International Chemical Safety Cards (ICSCs)",
+        "url": "https://chemicalsafety.ilo.org/dyn/icsc/showcard.display?p_card_id=0102"
+       }
+      ]
+     },
+     {
+      "heading": "Reactivity Profile",
+      "entries": [
+       {
+        "name": null,
+        "value": "A nontoxic, combustible liquid, reacts with oxidizing reagents. BENZALDEHYDE must be blanketed with an inert gas at all times since it is oxidized readily by air to benzoic acid [Kirk-Othmer, 3rd ed., Vol. 3, 1978, p. 736]. In contact with strong acids or bases it will undergo an exothermic condensation reaction [Sax, 9th ed., 1996, p. 327]. A violent reaction was observed on contact with peroxyacids (peroxyformic acid) [D'Ans, J. et al., Ber., 1915, 48, p. 1136]. An explosion occurred when pyrrolidine, benzaldehyde, and propionic acid were heated to form porphyrins.",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/216"
+       }
+      ]
+     },
+     {
+      "heading": "Hazardous Reactivities and Incompatibilities",
+      "entries": [
+       {
+        "name": null,
+        "value": "Incompatible materials: Strong oxidizing agents, strong reducing agents, strong bases, alkali metals, aluminum, iron, phenols, oxygen.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": null,
+        "value": "A strong reducing agent. Reacts violently with peroxyformic acid and other oxidizers.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": null,
+        "value": "The substance reacts with air, forming explosive peroxides. Reacts violently with performic acid, oxidants, aluminum, iron, bases, and phenol, causing fire and explosion hazard. May self-ignite if absorbed in combustible material with large surface area or otherwise dispersed over large areas. Reacts with rust, amines, alkalies, strong bases, reducing agents.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": null,
+        "value": "Benzaldehyde ... /will/ react violently with 90% performic acid.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       },
+       {
+        "name": null,
+        "value": "An explosion occurred when benzaldehyde, pyrrolidine ... , and propionic acid were heated to form porphins.",
+        "note": "PEER REVIEWED",
+        "source": "Hazardous Substances Data Bank (HSDB)",
+        "url": "https://pubchem.ncbi.nlm.nih.gov/source/hsdb/388"
+       }
+      ]
+     },
+     {
+      "heading": "Air and Water Reactions",
+      "entries": [
+       {
+        "name": null,
+        "value": "Oxidizes in air to form benzoic acid, which is moderately toxic by ingestion. Insoluble in water.",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/216"
+       }
+      ]
+     },
+     {
+      "heading": "Reactive Group",
+      "entries": [
+       {
+        "name": null,
+        "value": "Aldehydes",
+        "note": null,
+        "source": "CAMEO Chemicals",
+        "url": "https://cameochemicals.noaa.gov/chemical/216"
+       }
+      ]
+     },
+     {
+      "heading": "Peroxide Forming Chemical",
+      "entries": [
+       {
+        "name": "Chemical",
+        "value": "Benzaldehyde",
+        "note": null,
+        "source": "Lab and Research Safety, University of Minnesota",
+        "url": null
+       },
+       {
+        "name": "Class (* = UMN Designation)",
+        "value": "D*: Other compounds that may form peroxides",
+        "note": null,
+        "source": "Lab and Research Safety, University of Minnesota",
+        "url": null
+       },
+       {
+        "name": "Peroxide Concentration Over Time",
+        "value": "1 ppm, &gt; 1 yr",
+        "note": null,
+        "source": "Lab and Research Safety, University of Minnesota",
+        "url": null
+       },
+       {
+        "name": "Reference(s)",
+        "value": "Management of time-sensitive chemicals (JCHAS)",
+        "note": null,
+        "source": "Lab and Research Safety, University of Minnesota",
+        "url": null
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "lab:11022444": {
+  "cid": 11022444,
+  "name": "Bis(fulminato-kappaC)mercury",
+  "iupac_name": "dioxycyanomercury",
+  "cas": "628-86-4",
+  "molecular_formula": "Hg(ONC)2",
+  "molecular_weight": 284.63,
+  "smiles": "[C]#[N+][O-].[C]#[N+][O-].[Hg]",
+  "boiling_point_c": null,
+  "melting_point_c": null,
+  "density_g_cm3": 4.42,
+  "flash_point_c": null,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS01",
+   "GHS06",
+   "GHS08",
+   "GHS09"
+  ],
+  "hazard_statements": [
+   "H200: (Deleted) Unstable Explosive [Danger Explosives]",
+   "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+   "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+   "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+   "H373 **: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+   "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]",
+   "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/11022444"
+ },
+ "lookup:628-86-4": {
+  "cid": 11022444,
+  "name": "Bis(fulminato-kappaC)mercury",
+  "iupac_name": "dioxycyanomercury",
+  "cas": "628-86-4",
+  "molecular_formula": "Hg(ONC)2",
+  "molecular_weight": 284.63,
+  "smiles": "[C]#[N+][O-].[C]#[N+][O-].[Hg]",
+  "boiling_point_c": null,
+  "melting_point_c": null,
+  "density_g_cm3": 4.42,
+  "flash_point_c": null,
+  "refractive_index": null,
+  "signal_word": "Danger",
+  "pictograms": [
+   "GHS01",
+   "GHS06",
+   "GHS08",
+   "GHS09"
+  ],
+  "hazard_statements": [
+   "H200: (Deleted) Unstable Explosive [Danger Explosives]",
+   "H301: Toxic if swallowed [Danger Acute toxicity, oral]",
+   "H311: Toxic in contact with skin [Danger Acute toxicity, dermal]",
+   "H331: Toxic if inhaled [Danger Acute toxicity, inhalation]",
+   "H373 **: May causes damage to organs through prolonged or repeated exposure [Warning Specific target organ toxicity, repeated exposure]",
+   "H400: Very toxic to aquatic life [Warning Hazardous to the aquatic environment, acute hazard]",
+   "H410: Very toxic to aquatic life with long lasting effects [Warning Hazardous to the aquatic environment, long-term hazard]"
+  ],
+  "pubchem_url": "https://pubchem.ncbi.nlm.nih.gov/compound/11022444"
  }
 }
