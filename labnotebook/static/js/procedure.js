@@ -545,7 +545,9 @@ function mentions(el, { plain = false } = {}) {
     if (!m) return close();
     start = caret - m[0].length;
     const q = m[1].toLowerCase();
-    items = state.data.reagents.filter((r) => [r.name, r.label, r.formula].some((x) => (x || "").toLowerCase().includes(q))).slice(0, 8);
+    const seen = new Set();  // the same chemical in several steps is listed once (mentions resolve by name)
+    items = state.data.reagents.filter((r) => [r.name, r.label, r.formula].some((x) => (x || "").toLowerCase().includes(q)))
+      .filter((r) => !seen.has(labelOf(r).toLowerCase()) && seen.add(labelOf(r).toLowerCase())).slice(0, 8);
     active = 0;
     show();
   });

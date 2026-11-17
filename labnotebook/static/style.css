@@ -341,3 +341,11 @@ iframe.preview { width: 100%; height: 80vh; border: 1px solid var(--line); borde
 .field, .quick { position: relative; }
 .composer { grid-template-columns: minmax(0, 1fr); }
 .quick .btn { flex: 0 0 auto; }
+/* @ suggestion lists open under their text box */
+.proc-add, .proc-body, .entry.editing, .composer .field, .quick { position: relative; }
+.mention-list { left: 0; right: 0; top: 100%; z-index: 30; }
+.proc-add .mention-list { right: 110px; }
+/* long timer labels shorten instead of widening the page */
+.timers { min-width: 0; max-width: 100%; }
+.timer { max-width: 100%; min-width: 0; }
+.timer .t-label { min-width: 0; flex: 1 1 auto; }
