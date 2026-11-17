@@ -654,3 +654,53 @@ body.exp-view .pl.wide .phase-h { background: var(--pane); }
 .legend-dots .dot, .proj-sum .dot { display: inline-block; }
 .route-map .rm-start-card { fill: var(--pane-2); stroke-dasharray: 4 3; }
 .route-map .rm-start-title { fill: var(--muted); }
+
+/* ---------------------------------------------------------------------------------------- sign-in */
+body.auth-view .sidebar, body.auth-view .mobilebar, body.auth-view .scrim { display: none !important; }
+body.auth-view .shell { grid-template-columns: 1fr; }
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.auth-card { width: min(400px, 100%); background: var(--pane); border: 1px solid var(--line); border-radius: 14px;
+  padding: 26px 24px; box-shadow: var(--shadow-lg); display: grid; gap: 12px; }
+.auth-card h1 { font-size: 1.25rem; }
+.auth-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+.auth-card .field input { width: 100%; }
+.auth-err { color: var(--bad); font-size: .85rem; min-height: 1.2em; }
+.auth-go { justify-content: center; padding: 9px; }
+.auth-foot { text-align: center; margin: 0; }
+
+/* ---------------------------------------------------------------------------------------- user menu */
+.sb-user { border-top: 1px solid var(--line); padding: 6px 8px; position: relative; }
+.sb-user > summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; cursor: pointer; }
+.sb-user > summary::-webkit-details-marker { display: none; }
+.sb-user > summary:hover { background: var(--hover); }
+.avatar { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font-weight: 700; font-size: .78rem;
+  background: var(--accent); color: var(--accent-ink); flex: 0 0 auto; }
+.menu-list { display: grid; gap: 1px; padding: 4px; background: var(--pane); border: 1px solid var(--line-2); border-radius: 9px; box-shadow: var(--shadow-lg); }
+.sb-user .menu-list { position: absolute; bottom: calc(100% - 2px); left: 8px; right: 8px; z-index: 30; }
+.menu-list > button, .menu-list > a { text-align: left; border: 0; background: transparent; padding: 7px 10px; border-radius: 6px;
+  cursor: pointer; color: var(--ink); font-size: .85rem; }
+.menu-list > button:hover, .menu-list > a:hover { background: var(--hover); text-decoration: none; }
+.menu-list > .danger { color: var(--bad); }
+.tag.role-admin { color: var(--c-reagent); background: color-mix(in srgb, var(--c-reagent) 13%, transparent); }
+.tag.t-ok { color: var(--ok); background: var(--ok-soft); }
+
+/* ---------------------------------------------------------------------------------------- admin */
+.admin-table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+.admin-table th, .admin-table td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+.admin-table th { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 650; }
+.admin-table .num { text-align: right; white-space: nowrap; }
+.admin-table.compact td { padding: 5px 8px; font-size: .82rem; }
+.admin-table td.actions { white-space: nowrap; text-align: right; }
+.admin-table tr.muted-row td { opacity: .6; }
+.admin-table tr.edit-row td { background: var(--pane-2); }
+details.menu { display: inline-block; position: relative; }
+details.menu > summary { list-style: none; }
+details.menu > summary::-webkit-details-marker { display: none; }
+details.menu .menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 250px; }
+.admin-form { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; margin: 10px 0; }
+.admin-form .field { min-width: 170px; flex: 1 1 170px; max-width: 280px; }
+.admin-form .field input, .admin-form .field select { width: 100%; }
+.add-user { margin-top: 12px; }
+.add-user > summary { list-style: none; display: inline-flex; }
+.invite-new { padding: 10px 12px; border-radius: 8px; background: var(--ok-soft); margin-bottom: 10px; display: grid; gap: 6px; }
+.admin-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; }

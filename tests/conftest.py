@@ -10,6 +10,7 @@ from labnotebook.config import Settings
 from labnotebook.pubchem import PubChemClient
 
 FIXTURES = Path(__file__).parent / "fixtures"
+ADMIN_PASSWORD = "correct horse battery"
 RECORDED = json.loads((FIXTURES / "pubchem.json").read_text())
 
 
@@ -51,7 +52,12 @@ def _client(tmp_path, handler):
     settings = Settings(data_dir=tmp_path, pubchem_url="http://pubchem.test", pubchem_timeout=2, lab_name="Test Lab",
                         author="A. Chemist")
     pc = PubChemClient(settings.pubchem_url, transport=httpx.MockTransport(handler))
-    return TestClient(create_app(settings, pc))
+    app = create_app(settings, pc)
+    if not app.state.auth.has_users():
+        app.state.auth.create_user("admin", ADMIN_PASSWORD, "A. Admin", role="admin")
+    c = TestClient(app, headers={"X-Requested-With": "test"})
+    assert c.post("/api/auth/login", json={"username": "admin", "password": ADMIN_PASSWORD}).status_code == 200
+    return c
 
 
 @pytest.fixture

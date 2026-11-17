@@ -56,7 +56,13 @@ as its chemical data source and runs as its own Docker container (built for Unra
   overall yield) and one chapter per experiment, with compound numbers shared across the project.
 - Works without PubChem Local too: all data can be entered by hand.
 
-Single user, no login. Intended for your LAN or Tailscale; the layout adapts from laptop (procedure and log side by
+- **Accounts:** sign-in with user name and password; every account has its own private notebook. An **admin
+  dashboard** manages accounts (create, edit, disable, set password, sign out everywhere, export or reset a notebook,
+  delete), one-time **invite links**, **demo limits** (account expiry, a maximum number of experiments), recent
+  sign-ins and changes, and database **backups**.
+
+Works on your LAN, over Tailscale or exposed to the internet (e.g. through Cloudflare Tunnel; see
+[Accounts and exposing it](#accounts-and-exposing-it)). The layout adapts from laptop (procedure and log side by
 side) to phone (log entries under each procedure step, compact log bar). Keeping the screen awake and timer
 notifications need HTTPS (e.g. Tailscale Serve) or localhost; sound and vibration alerts work everywhere.
 
@@ -105,12 +111,31 @@ Back up `/mnt/user/appdata/lab-notebook` (a single SQLite file, `notebook.sqlite
 | --- | --- | --- |
 | `PUBCHEM_URL` | `http://localhost:55055` | Base URL of PubChem Local, as seen from this container |
 | `PUBCHEM_TIMEOUT` | `8` | Seconds before a PubChem Local request is treated as unavailable |
-| `AUTHOR_NAME` | | Default author for new experiments |
+| `AUTHOR_NAME` | | Author for accounts without a name of their own |
 | `LAB_NAME` | | Lab / institution shown in the report header |
 | `TZ` | | Time zone for log timestamps, e.g. `Europe/Berlin` |
 | `PORT` | `8000` | Port inside the container |
 | `NOTEBOOK_DATA_DIR` | `/data` | Database location |
 | `PUID` / `PGID` | `99` / `100` | User and group the app runs as (Unraid's nobody:users) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | | Optional: create this admin on the first start (otherwise use the setup code) |
+| `COOKIE_SECURE` | `auto` | `auto`: Secure cookies when reached over HTTPS; `true` / `false` to force |
+| `CLIENT_IP_HEADER` | | Header with the visitor's address set by your proxy, e.g. `CF-Connecting-IP` |
+| `SESSION_DAYS` | `30` | How long a sign-in lasts without use |
+
+## Accounts and exposing it
+
+- **First start:** with no accounts yet, the container log shows a one-time **setup code**. Open the app, enter
+  the code and create the admin account; the notebook you had before accounts becomes the admin's. (Or set
+  `ADMIN_USERNAME` and `ADMIN_PASSWORD` for the first start.)
+- **Friends:** in **Admin**, create an **invite link** (it works once and expires) or an account. Demo accounts can
+  expire and have a limit on experiments; **Reset notebook** clears one.
+- Every account sees only its own experiments and projects; the server answers 404 for anyone else's.
+- Passwords are hashed with scrypt; sessions are HttpOnly, SameSite=Lax cookies (Secure over HTTPS); changes need
+  an `X-Requested-With` header (no cross-site requests); failed sign-ins are throttled per user name and address;
+  Markdown in reports cannot carry HTML or script links.
+- **Exposing it:** put it behind an HTTPS reverse proxy or tunnel (e.g. Cloudflare Tunnel) that points at this
+  container only, and set `CLIENT_IP_HEADER` to the header your proxy uses for the visitor's address. PubChem Local
+  never needs to be exposed: the browser only talks to Lab Notebook.
 
 ## How the calculations work
 
@@ -183,13 +208,14 @@ Debian/Ubuntu). Without it, PDF export returns HTTP 501 and the other formats st
 
 | Path | Contents |
 | --- | --- |
-| `labnotebook/app.py` | FastAPI app: JSON API, PubChem Local proxy, report downloads, frontend |
+| `labnotebook/app.py` | FastAPI app: JSON API, access control, admin routes, PubChem Local proxy, report downloads, frontend |
+| `labnotebook/auth.py` | Accounts: password hashing, sessions, invites, sign-in throttling |
 | `labnotebook/stoich.py` | Stoichiometry: planned/actual amounts, limiting reagent, yields (pure functions) |
 | `labnotebook/actions.py` | Log actions: fields and the sentences they produce |
 | `labnotebook/scheme.py`, `templates/scheme.html` | Reaction scheme layout and `@` mentions |
 | `labnotebook/hazards.py` | DOT / NFPA / reactivity data from the safety summary |
 | `labnotebook/projects.py` | Project routes: material links between experiments, layout, overall yields, route map (SVG) |
-| `labnotebook/db.py` | SQLite storage (schema version 3; older databases are migrated on start: multi-step experiments become linked experiments in a project) |
+| `labnotebook/db.py` | SQLite storage (schema version 4; older databases are migrated on start: multi-step experiments become linked experiments in a project) |
 | `labnotebook/pubchem.py`, `structures.py` | PubChem Local REST client and structure images |
 | `labnotebook/report.py`, `templates/report.html` | Markdown / HTML / PDF reports |
 | `labnotebook/static/js/` | Frontend modules (vanilla JS, no build step) |

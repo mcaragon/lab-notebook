@@ -3,6 +3,7 @@
 import { api, toast } from "./util.js";
 
 export const state = {
+  user: null,          // the signed-in account ({id, username, display_name, is_admin, demo, ...})
   config: null,
   data: null,          // full experiment detail from the server
   clockOffset: 0,      // server time - client time (ms), so T+ is right even if the device clock is off

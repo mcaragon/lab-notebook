@@ -30,7 +30,7 @@ def test_health_and_config(client, offline_client):
 def test_experiment_crud(client):
     exp_id, _ = new_exp(client)
     d = client.get(f"/api/experiments/{exp_id}").json()
-    assert d["experiment"]["author"] == "A. Chemist"  # default from AUTHOR_NAME
+    assert d["experiment"]["author"] == "A. Admin"  # the account's name
     assert len(d["steps"]) == 1 and d["scheme_html"]
     r = client.put(f"/api/experiments/{exp_id}", json={"objective": "Reduce", "status": "in_progress"})
     assert r.json()["experiment"]["objective"] == "Reduce"

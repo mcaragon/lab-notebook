@@ -1,21 +1,42 @@
-"""FastAPI application: JSON API, report downloads and the single-page frontend."""
+"""FastAPI application: JSON API, report downloads and the single-page frontend.
+
+Every API route except sign-in needs a session (a cookie); each account only reaches its own experiments and
+projects (anything else answers 404), and ``/api/admin`` needs the admin role. Requests that change something must
+carry an ``X-Requested-With`` header, which a cross-site form cannot send.
+"""
 from __future__ import annotations
 
+import contextvars
+import json
+import logging
+import os
 import re
+import sqlite3
+import tempfile
 import zlib
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Response
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
-from . import __version__, actions, db, hazards, projects, report, scheme, stoich, structures
+from . import __version__, actions, auth, db, hazards, projects, report, scheme, stoich, structures
 from .config import Settings, load_settings
 from .pubchem import PubChemClient, PubChemUnavailable, summary_to_reagent
 
 STATIC = Path(__file__).parent / "static"
+COOKIE = "ln_session"
+logger = logging.getLogger("labnotebook")
+# The signed-in user of the request being handled (set by the access middleware)
+CURRENT_USER: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar("current_user", default=None)
+# API routes that work without a session (invite routes are matched by prefix)
+PUBLIC_API = {"/api/health", "/api/auth/state", "/api/auth/login", "/api/auth/logout", "/api/auth/setup"}
+SECURITY_HEADERS = [(b"x-content-type-options", b"nosniff"), (b"x-frame-options", b"SAMEORIGIN"),
+                    (b"referrer-policy", b"same-origin"),
+                    (b"permissions-policy", b"camera=(), microphone=(), geolocation=()")]
 
 
 # ------------------------------------------------------------------------------------------- request models
@@ -152,6 +173,53 @@ class BranchIn(BaseModel):
     project_id: Optional[int] = None     # project to add the new experiment to (default: the product's projects)
 
 
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class SetupIn(BaseModel):
+    code: str
+    username: str
+    password: str
+    display_name: Optional[str] = None
+
+
+class SignupIn(BaseModel):
+    username: str
+    password: str
+    display_name: Optional[str] = None
+
+
+class PasswordIn(BaseModel):
+    current: str
+    new: str
+
+
+class UserIn(BaseModel):
+    username: Optional[str] = None       # create only
+    password: Optional[str] = None       # create only
+    display_name: Optional[str] = None
+    role: Optional[Literal["admin", "user"]] = None
+    active: Optional[bool] = None
+    demo: Optional[bool] = None
+    expires_at: Optional[str] = None     # ISO date or datetime (UTC); "" clears it
+    max_experiments: Optional[int] = None  # 0 or less clears it
+
+
+class AdminPasswordIn(BaseModel):
+    password: str
+
+
+class InviteIn(BaseModel):
+    note: Optional[str] = None
+    role: Literal["admin", "user"] = "user"
+    demo: bool = True
+    max_experiments: Optional[int] = None
+    account_days: Optional[int] = None   # the account expires this many days after sign-up
+    valid_days: int = 7                  # the link expires after this many days
+
+
 class RefreshIn(BaseModel):
     fields: Optional[list[str]] = None  # None = every PubChem field
 
@@ -184,20 +252,111 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     store = db.Store(settings.db_path)
     client = pubchem or PubChemClient(settings.pubchem_url, settings.pubchem_timeout)
 
+    accounts = auth.Auth(store, settings.session_days)
+
     app = FastAPI(title="Lab Notebook", version=__version__,
                   description="Organic chemistry lab notebook backed by PubChem Local.")
-    app.state.store, app.state.pubchem, app.state.settings = store, client, settings
+    app.state.store, app.state.pubchem, app.state.settings, app.state.auth = store, client, settings, accounts
+
+    # -------------------------------------------------------------- first start
+    if not accounts.has_users():
+        if settings.admin_username and settings.admin_password:
+            accounts.create_user(settings.admin_username, settings.admin_password, role="admin")
+            logger.warning("Created the admin account %r from ADMIN_USERNAME / ADMIN_PASSWORD.", settings.admin_username)
+        else:
+            code = accounts.new_setup_code()
+            msg = (f"\n  Lab Notebook has no accounts yet. Open it in a browser and create the admin account with "
+                   f"this setup code:\n\n      {code}\n")
+            logger.warning(msg)
+            print(msg, flush=True)
+
+    # -------------------------------------------------------------- access control
+    def client_ip(scope: dict) -> Optional[str]:
+        if settings.client_ip_header:
+            name = settings.client_ip_header.lower().encode()
+            for k, v in scope.get("headers") or []:
+                if k == name:
+                    return v.decode(errors="ignore").split(",")[0].strip()[:64]
+        c = scope.get("client")
+        return c[0] if c else None
+
+    def cookie_token(scope: dict) -> Optional[str]:
+        for k, v in scope.get("headers") or []:
+            if k == b"cookie":
+                for part in v.decode(errors="ignore").split(";"):
+                    name, _, val = part.strip().partition("=")
+                    if name == COOKIE:
+                        return val
+        return None
+
+    class Access:
+        """Sessions, admin-only routes, the header check on changes, and security headers on every response."""
+
+        def __init__(self, inner):
+            self.inner = inner
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] != "http":
+                return await self.inner(scope, receive, send)
+            path, method = scope["path"], scope["method"]
+
+            async def send_with_headers(message):
+                if message["type"] == "http.response.start":
+                    message["headers"] = list(message.get("headers") or []) + SECURITY_HEADERS
+                await send(message)
+
+            async def refuse(status: int, detail: str):
+                await JSONResponse({"detail": detail}, status_code=status)(scope, receive, send_with_headers)
+
+            user = accounts.session_user(cookie_token(scope)) if path.startswith("/api/") else None
+            if path.startswith("/api/"):
+                headers = dict(scope.get("headers") or [])
+                if method not in ("GET", "HEAD", "OPTIONS") and b"x-requested-with" not in headers:
+                    return await refuse(403, "Missing X-Requested-With header")
+                public = path in PUBLIC_API or path.startswith("/api/auth/invite/")
+                if not public and not user:
+                    return await refuse(401, "Please sign in")
+                if path.startswith("/api/admin/") and user["role"] != "admin":
+                    return await refuse(403, "Admins only")
+            token = CURRENT_USER.set(user)
+            try:
+                await self.inner(scope, receive, send_with_headers)
+            finally:
+                CURRENT_USER.reset(token)
+
+    app.add_middleware(Access)
+
+    def me() -> dict:
+        u = CURRENT_USER.get()
+        if not u:
+            raise HTTPException(401, "Please sign in")
+        return u
+
+    def uid() -> int:
+        return me()["id"]
+
+    def default_author() -> Optional[str]:
+        """The account's name; AUTHOR_NAME only for accounts without one."""
+        return me().get("display_name") or settings.author or None
+
+    def check_quota() -> None:
+        """Demo accounts can have a limit on the number of experiments."""
+        u = me()
+        if u.get("max_experiments") and u["max_experiments"] > 0 \
+                and store.count_experiments(u["id"]) >= u["max_experiments"]:
+            raise HTTPException(403, f"This demo account is limited to {u['max_experiments']} experiments. "
+                                     "Delete one to make room.")
 
     # -------------------------------------------------------------- helpers
     def need(table: str, rid: int, what: str) -> dict:
         row = store.get(table, rid)
-        if not row:
+        if not row or store.owner_of(table, rid) != uid():
             raise HTTPException(404, f"{what} not found")
         return row
 
     def need_exp(exp_id: int) -> dict:
         exp = store.get_experiment(exp_id)
-        if not exp:
+        if not exp or exp.get("owner_id") != uid():
             raise HTTPException(404, "Experiment not found")
         return exp
 
@@ -227,7 +386,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
     def detail(exp_id: int) -> dict:
         b = store.bundle(exp_id)
-        if not b:
+        if not b or b["experiment"].get("owner_id") != uid():
             raise HTTPException(404, "Experiment not found")
         calc = compute(b)
         use = actions.usage(b["entries"])
@@ -303,6 +462,8 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     # -------------------------------------------------------------- meta
     @app.get("/api/health")
     def health():
+        if not CURRENT_USER.get():  # for the container health check: no details without a session
+            return {"status": "ok"}
         try:
             pc = client.health()
             pubchem_status = {"reachable": True, **({"datasets": pc.get("datasets")} if "datasets" in pc else {})}
@@ -312,20 +473,22 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
     @app.get("/api/config")
     def config():
-        return {"version": __version__, "author": settings.author, "lab_name": settings.lab_name,
+        return {"version": __version__, "author": default_author() or "", "lab_name": settings.lab_name,
                 "sections": db.SECTIONS, "roles": stoich.ROLES, "forms": stoich.FORMS, "bases": stoich.BASES,
                 "actions": actions.ACTIONS, "units": actions.AMOUNT_UNITS}
 
     # -------------------------------------------------------------- experiments
     @app.get("/api/experiments")
     def list_experiments():
-        return {"experiments": store.list_experiments()}
+        return {"experiments": store.list_experiments(uid())}
 
     @app.post("/api/experiments", status_code=201)
     def create_experiment(body: ExperimentIn):
+        check_quota()
         data = body.model_dump(exclude_unset=True)
-        if not data.get("author") and settings.author:
-            data["author"] = settings.author
+        if not data.get("author") and default_author():
+            data["author"] = default_author()
+        data["owner_id"] = uid()
         return detail(store.create_experiment(data))
 
     @app.get("/api/experiments/{exp_id}")
@@ -368,12 +531,15 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
     @app.delete("/api/experiments/{exp_id}", status_code=204)
     def delete_experiment(exp_id: int):
+        need_exp(exp_id)
         if not store.delete_experiment(exp_id):
             raise HTTPException(404, "Experiment not found")
         return Response(status_code=204)
 
     @app.post("/api/experiments/{exp_id}/duplicate", status_code=201)
     def duplicate_experiment(exp_id: int):
+        need_exp(exp_id)
+        check_quota()
         new_id = store.duplicate_experiment(exp_id)
         if new_id is None:
             raise HTTPException(404, "Experiment not found")
@@ -807,7 +973,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     # -------------------------------------------------------------- projects
     def need_project(project_id: int) -> dict:
         proj = store.get_project(project_id)
-        if not proj:
+        if not proj or proj.get("owner_id") != uid():
             raise HTTPException(404, "Project not found")
         return proj
 
@@ -839,7 +1005,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
     @app.get("/api/projects")
     def list_projects():
-        return {"projects": store.list_projects()}
+        return {"projects": store.list_projects(uid())}
 
     @app.post("/api/projects", status_code=201)
     def create_project(body: ProjectIn):
@@ -847,6 +1013,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         ids = data.pop("experiment_ids", None) or []
         for eid in ids:
             need_exp(eid)
+        data["owner_id"] = uid()
         return project_detail(store.create_project(data, ids))
 
     @app.get("/api/projects/{project_id}")
@@ -884,10 +1051,12 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def new_in_project(project_id: int, body: ExperimentIn):
         """A new experiment in the project, not yet linked (the start of a route or a separate branch)."""
         need_project(project_id)
+        check_quota()
         data = body.model_dump(exclude_unset=True)
         data.pop("phases", None)
-        if not data.get("author") and settings.author:
-            data["author"] = settings.author
+        if not data.get("author") and default_author():
+            data["author"] = default_author()
+        data["owner_id"] = uid()
         eid = store.create_experiment(data)
         store.add_to_project(project_id, eid)
         out = project_detail(project_id)
@@ -901,10 +1070,11 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         if prod["role"] != "product":
             raise HTTPException(400, "Only a product can start a branch")
         parent = need_exp(prod["experiment_id"])
+        check_quota()
         title = body.title or f"From {scheme.label(prod)}"
-        data = {"title": title}
-        if settings.author:
-            data["author"] = settings.author
+        data = {"title": title, "owner_id": uid()}
+        if default_author():
+            data["author"] = default_author()
         eid = store.create_experiment(data)
         stage = store.list("steps", "experiment_id = ?", (eid,))[0]["id"]
         _carry(eid, stage, prod, body.mass_g)
@@ -914,7 +1084,8 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         else:
             pids = [p["id"] for p in store.projects_of(parent["id"])]
         if not pids:
-            pids = [store.create_project({"title": f"Route from {scheme.label(prod)}"}, [parent["id"]])]
+            pids = [store.create_project({"title": f"Route from {scheme.label(prod)}", "owner_id": uid()},
+                                         [parent["id"]])]
         for pid in pids:
             if parent["id"] not in store.get_project(pid)["experiment_ids"]:
                 store.add_to_project(pid, parent["id"])
@@ -927,7 +1098,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def search_products(q: str = "", exclude: Optional[int] = None, limit: int = Query(12, ge=1, le=50)):
         """Products of experiments, to use as a starting material (a link between experiments)."""
         out = []
-        for p in store.products(q, exclude, limit):
+        for p in store.products(q, exclude, limit, owner=uid()):
             left = remaining_of(store.get("reagents", p["id"]))
             out.append({**p, "remaining_g": left})
         return {"products": out}
@@ -1015,7 +1186,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     # -------------------------------------------------------------- reports
     def _ctx(exp_id: int, embed: bool) -> dict:
         b = store.bundle(exp_id)
-        if not b:
+        if not b or b["experiment"].get("owner_id") != uid():
             raise HTTPException(404, "Experiment not found")
         return report.build_context(b, compute(b), settings, client if embed else None)
 
@@ -1041,6 +1212,232 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         disp = "attachment" if download else "inline"
         return Response(pdf, media_type="application/pdf",
                         headers={"Content-Disposition": f'{disp}; filename="{_slug(ctx["exp"]["title"])}.pdf"'})
+
+    # -------------------------------------------------------------- sign-in
+    def secure_cookie(request: Request) -> bool:
+        if settings.cookie_secure in ("true", "1", "yes"):
+            return True
+        if settings.cookie_secure in ("false", "0", "no"):
+            return False
+        return request.url.scheme == "https"
+
+    def signed_in(request: Request, user: dict, token: str) -> JSONResponse:
+        res = JSONResponse({"user": accounts.public(user)})
+        res.set_cookie(COOKIE, token, max_age=settings.session_days * 86400, httponly=True, samesite="lax",
+                       secure=secure_cookie(request), path="/")
+        return res
+
+    def fail(e: auth.AuthError):
+        raise HTTPException(e.status, str(e))
+
+    @app.get("/api/auth/state")
+    def auth_state():
+        u = CURRENT_USER.get()
+        return {"user": accounts.public(u) if u else None, "setup_needed": not accounts.has_users(),
+                "lab_name": settings.lab_name, "version": __version__}
+
+    @app.post("/api/auth/login")
+    def login(body: LoginIn, request: Request):
+        try:
+            user, token = accounts.login(body.username, body.password, client_ip(request.scope),
+                                         request.headers.get("user-agent", ""))
+        except auth.AuthError as e:
+            fail(e)
+        return signed_in(request, user, token)
+
+    @app.post("/api/auth/logout")
+    def logout(request: Request):
+        accounts.end_session(request.cookies.get(COOKIE))
+        res = JSONResponse({"ok": True})
+        res.delete_cookie(COOKIE, path="/")
+        return res
+
+    @app.post("/api/auth/setup")
+    def setup(body: SetupIn, request: Request):
+        """First start: create the admin account with the setup code from the server log."""
+        ip = client_ip(request.scope)
+        if accounts.has_users():
+            raise HTTPException(409, "The admin account already exists. Sign in instead.")
+        if accounts.lockout("(setup)", ip):
+            raise HTTPException(429, "Too many wrong codes. Try again later.")
+        if not accounts.check_setup_code(body.code):
+            accounts.record_attempt("(setup)", ip, False, "wrong setup code")
+            raise HTTPException(403, "Wrong setup code. It is printed in the server log (docker logs).")
+        try:
+            new = accounts.create_user(body.username, body.password, body.display_name or "", role="admin")
+        except auth.AuthError as e:
+            fail(e)
+        accounts.setup_code = None
+        accounts.record_attempt(body.username, ip, True, "admin created")
+        return signed_in(request, accounts.get_user(new), accounts.new_session(new, ip,
+                                                                               request.headers.get("user-agent", "")))
+
+    @app.get("/api/auth/invite/{token}")
+    def invite_info(token: str):
+        inv = accounts.invite(token)
+        if not inv:
+            raise HTTPException(404, "This invite link is not valid (it may have been used or have expired).")
+        return {"valid": True, "demo": bool(inv["demo"]), "account_days": inv["account_days"],
+                "max_experiments": inv["max_experiments"], "expires_at": inv["expires_at"]}
+
+    @app.post("/api/auth/invite/{token}")
+    def accept_invite(token: str, body: SignupIn, request: Request):
+        ip = client_ip(request.scope)
+        if accounts.lockout("(invite)", ip):
+            raise HTTPException(429, "Too many attempts. Try again later.")
+        try:
+            new = accounts.accept_invite(token, body.username, body.password, body.display_name or "")
+        except auth.AuthError as e:
+            accounts.record_attempt("(invite)", ip, False, str(e)[:60])
+            fail(e)
+        accounts.record_attempt(body.username, ip, True, "signed up with an invite")
+        return signed_in(request, accounts.get_user(new), accounts.new_session(new, ip,
+                                                                               request.headers.get("user-agent", "")))
+
+    @app.post("/api/auth/password")
+    def change_password(body: PasswordIn, request: Request):
+        u = me()
+        if not auth.verify_password(body.current, accounts.get_user(u["id"])["password_hash"]):
+            raise HTTPException(403, "The current password is wrong.")
+        try:
+            accounts.set_password(u["id"], body.new)
+        except auth.AuthError as e:
+            fail(e)
+        accounts.end_sessions(u["id"], keep=request.cookies.get(COOKIE))  # sign out other devices
+        return {"ok": True}
+
+    # -------------------------------------------------------------- admin
+    def need_user(user_id: int) -> dict:
+        u = accounts.get_user(user_id)
+        if not u:
+            raise HTTPException(404, "User not found")
+        return u
+
+    def expiry(v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        d = auth.parse(v if "T" in v else v + "T23:59:59+00:00")
+        if not d:
+            raise HTTPException(422, "Use a date like 2026-12-31 for the expiry.")
+        return auth.ts(d)
+
+    @app.get("/api/admin/overview")
+    def admin_overview():
+        size = settings.db_path.stat().st_size if settings.db_path.exists() else 0
+        with store.conn() as c:
+            counts = {t: c.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                      for t in ("users", "experiments", "projects", "reagents", "entries")}
+        return {"users": accounts.users_overview(), "invites": accounts.list_invites(),
+                "attempts": accounts.recent_attempts(), "changes": accounts.recent_changes(),
+                "db": {"size_bytes": size, "counts": counts}, "me": me()["id"]}
+
+    @app.post("/api/admin/users", status_code=201)
+    def admin_create_user(body: UserIn):
+        try:
+            new = accounts.create_user(body.username or "", body.password or "", body.display_name or "",
+                                       body.role or "user", bool(body.demo), expiry(body.expires_at),
+                                       body.max_experiments if body.max_experiments and body.max_experiments > 0
+                                       else None)
+        except auth.AuthError as e:
+            fail(e)
+        return {"user": accounts.public(accounts.get_user(new))}
+
+    @app.put("/api/admin/users/{user_id}")
+    def admin_update_user(user_id: int, body: UserIn):
+        u = need_user(user_id)
+        data = body.model_dump(exclude_unset=True, exclude={"username", "password"})
+        if "expires_at" in data:
+            data["expires_at"] = expiry(data["expires_at"])
+        if "max_experiments" in data and (data["max_experiments"] or 0) <= 0:
+            data["max_experiments"] = None
+        losing_admin = u["role"] == "admin" and u["active"] and (data.get("role") == "user" or data.get("active") is False)
+        if losing_admin and accounts.admins() <= 1:
+            raise HTTPException(400, "Keep at least one active admin.")
+        try:
+            accounts.update_user(user_id, data)
+        except auth.AuthError as e:
+            fail(e)
+        return {"user": accounts.public(accounts.get_user(user_id))}
+
+    @app.post("/api/admin/users/{user_id}/password")
+    def admin_set_password(user_id: int, body: AdminPasswordIn):
+        need_user(user_id)
+        try:
+            accounts.set_password(user_id, body.password)
+        except auth.AuthError as e:
+            fail(e)
+        accounts.end_sessions(user_id)
+        return {"ok": True}
+
+    @app.post("/api/admin/users/{user_id}/signout")
+    def admin_sign_out(user_id: int):
+        need_user(user_id)
+        accounts.end_sessions(user_id)
+        return {"ok": True}
+
+    @app.post("/api/admin/users/{user_id}/reset")
+    def admin_reset_data(user_id: int):
+        """Delete all experiments and projects of an account (the account stays)."""
+        need_user(user_id)
+        accounts.delete_user_data(user_id)
+        return {"ok": True}
+
+    @app.delete("/api/admin/users/{user_id}", status_code=204)
+    def admin_delete_user(user_id: int):
+        u = need_user(user_id)
+        if user_id == uid():
+            raise HTTPException(400, "You cannot delete your own account.")
+        if u["role"] == "admin" and accounts.admins() <= 1:
+            raise HTTPException(400, "Keep at least one active admin.")
+        accounts.delete_user(user_id)
+        return Response(status_code=204)
+
+    @app.get("/api/admin/users/{user_id}/experiments")
+    def admin_user_experiments(user_id: int):
+        need_user(user_id)
+        return {"experiments": accounts.user_experiments(user_id)}
+
+    @app.post("/api/admin/invites", status_code=201)
+    def admin_invite(body: InviteIn):
+        try:
+            iid, token = accounts.create_invite(uid(), body.role, body.demo,
+                                                body.max_experiments if (body.max_experiments or 0) > 0 else None,
+                                                body.account_days if (body.account_days or 0) > 0 else None,
+                                                body.valid_days, body.note or "")
+        except auth.AuthError as e:
+            fail(e)
+        return {"id": iid, "token": token, "path": f"/#/invite/{token}"}
+
+    @app.delete("/api/admin/invites/{invite_id}", status_code=204)
+    def admin_revoke_invite(invite_id: int):
+        accounts.revoke_invite(invite_id)
+        return Response(status_code=204)
+
+    @app.get("/api/admin/backup.sqlite")
+    def admin_backup():
+        """A consistent copy of the whole database (SQLite online backup)."""
+        fd, tmp = tempfile.mkstemp(suffix=".sqlite")
+        os.close(fd)
+        src, dst = sqlite3.connect(settings.db_path), sqlite3.connect(tmp)
+        try:
+            src.backup(dst)
+        finally:
+            src.close()
+            dst.close()
+        stamp = db.now()[:16].replace(":", "").replace("T", "-")
+        return FileResponse(tmp, media_type="application/vnd.sqlite3", filename=f"lab-notebook-{stamp}.sqlite",
+                            background=BackgroundTask(os.unlink, tmp))
+
+    @app.get("/api/admin/users/{user_id}/export.json")
+    def admin_export(user_id: int):
+        """One account's notebook: every experiment (with everything in it) and project, as JSON."""
+        u = need_user(user_id)
+        exps = [store.bundle(e["id"]) for e in store.list_experiments(user_id)]
+        projs = store.list_projects(user_id)
+        body = json.dumps({"user": accounts.public(u), "exported_at": db.now(), "version": __version__,
+                           "experiments": [b for b in exps if b], "projects": projs}, indent=1, default=str)
+        return Response(body, media_type="application/json", headers={
+            "Content-Disposition": f'attachment; filename="lab-notebook-{u["username"]}.json"'})
 
     # -------------------------------------------------------------- frontend
     app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
