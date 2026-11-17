@@ -96,7 +96,7 @@ function clRow(r, step) {
   const liquid = r.form !== "neat" || ["solvent", "workup"].includes(r.role) || (r.mp != null && r.mp < 25);
   const unit = r.actual_basis || (r.basis === "mass" ? "mass" : r.basis === "volume" ? "volume" : liquid ? "volume" : "mass");
   const dev = c.deviation_pct;
-  return `<div class="cl-row ${r.actual_value != null ? "measured" : ""}">
+  return `<div class="cl-row role-${esc(r.role)} ${r.actual_value != null ? "measured" : ""}">
     <span class="cl-check" aria-hidden="true">${r.actual_value != null ? "✓" : "○"}</span>
     <span class="cl-name">${esc(r.name)} ${step}</span>
     <span class="cl-plan">${plannedText(r)}</span>
@@ -109,7 +109,7 @@ function clRow(r, step) {
 
 function clProduct(r, step) {
   const c = r.calc || {};
-  return `<div class="cl-row prod">
+  return `<div class="cl-row prod role-product ${r.actual_mass_g != null ? "measured" : ""}">
     <span class="cl-check" aria-hidden="true">${r.actual_mass_g != null ? "✓" : "○"}</span>
     <span class="cl-name">${esc(r.name)} <span class="badge">product</span> ${step}</span>
     <span class="cl-plan">${c.theoretical_mass_g != null ? `theor. ${fmt(c.theoretical_mass_g)} g` : ""}</span>
