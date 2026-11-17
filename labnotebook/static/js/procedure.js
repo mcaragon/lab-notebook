@@ -132,6 +132,8 @@ function draw(root) {
   const isWide = wide.matches;
   const logBox = $(".pl-log .log-scroll", root);
   const atBottom = !logBox || logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight < 40;
+  // Keep each pane where the reader left it across the redraw (the log still follows new entries when at the bottom).
+  const procTop = $(".pl-proc", root)?.scrollTop || 0, logTop = logBox?.scrollTop || 0;
   root.innerHTML = `<div class="panel">
     <div class="row sec-head"><h2>Procedure &amp; log</h2><span class="spacer"></span>
       <span class="hint">Tap a step to make it current; new log entries attach to it. Type <b>@</b> for a chemical.</span></div>
@@ -150,7 +152,9 @@ function draw(root) {
   </div>`;
   bind(root);
   const box = $(".pl-log .log-scroll", root);
-  if (box && atBottom) box.scrollTop = box.scrollHeight;
+  if (box) box.scrollTop = atBottom ? box.scrollHeight : logTop;
+  const pp = $(".pl-proc", root);
+  if (pp) pp.scrollTop = procTop;
 }
 
 function procRow(p, i, nested) {
