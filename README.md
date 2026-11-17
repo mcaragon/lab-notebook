@@ -3,9 +3,12 @@
 Self-hosted lab notebook for organic chemistry experiments. It uses [PubChem Local](https://github.com/mcaragon/local_pubchem_db)
 as its chemical data source and runs as its own Docker container (built for Unraid).
 
-- **Four tabs per experiment:** **Plan** (overview, reaction scheme, reagents), **Bench** (reagent checklist,
-  procedure and log), **Results** (yields, write-up, references) and **Report**. A bench bar with the experiment
-  clock and running timers stays at the top of every tab.
+- **Workspace layout:** a sidebar with all experiments and sequences (searchable, collapsible groups, can be hidden),
+  a dashboard, and per experiment four tabs that fill the window with side-by-side panes that scroll on their own:
+  **Plan** (reaction scheme and reagents, with a side rail showing *At a glance* figures, an experiment-wide
+  *Hazard summary* and the details), **Bench** (reagent checklist | procedure | log), **Results** (yields and
+  write-up | references) and **Report**. Every section folds; the clock and running timers stay in a strip at the top.
+  Light and dark themes follow the device; color marks chemical roles, kinds of log entry, status and hazards.
 - **Multi-step work, two ways.** Steps inside one experiment (one-pot or telescoped sequences done in one session):
   each step has its own reagents and condition stages (e.g. 0 °C, 15 min; then rt, 2 h) and starts from the previous
   step's product. **Sequences** link separate experiments, e.g. one per step on different days, also after the fact:
@@ -185,4 +188,5 @@ The browser talks only to this app; it proxies PubChem Local (autocomplete, stru
 
 ## License
 
-MIT
+MIT. The bundled Inter font (`labnotebook/static/fonts`) is © The Inter Project Authors, under the SIL Open Font
+License 1.1 (`Inter-LICENSE.txt`).

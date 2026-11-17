@@ -4,6 +4,7 @@
    newest, like the procedure, with the composer underneath. */
 import { $, $$, esc, fmt, fmtDur, clockTime, isoWithOffset, localDateTimeValue, parseDuration, parseNum, preserveFocus, toast } from "./util.js";
 import { state, mutate, expId, multiStep, labelOf, reagentById } from "./state.js";
+import { resizer } from "./resize.js";
 
 const wide = window.matchMedia("(min-width: 1000px)");
 wide.addEventListener("change", () => state.data && state.tab === "bench" && renderProcedure($("#sec-procedure")));
@@ -96,7 +97,7 @@ function clRow(r, step) {
   const liquid = r.form !== "neat" || ["solvent", "workup"].includes(r.role) || (r.mp != null && r.mp < 25);
   const unit = r.actual_basis || (r.basis === "mass" ? "mass" : r.basis === "volume" ? "volume" : liquid ? "volume" : "mass");
   const dev = c.deviation_pct;
-  return `<div class="cl-row ${r.actual_value != null ? "measured" : ""}">
+  return `<div class="cl-row role-${esc(r.role)} ${r.actual_value != null ? "measured" : ""}">
     <span class="cl-check" aria-hidden="true">${r.actual_value != null ? "✓" : "○"}</span>
     <span class="cl-name">${esc(r.name)} ${step}</span>
     <span class="cl-plan">${plannedText(r)}</span>
@@ -109,7 +110,7 @@ function clRow(r, step) {
 
 function clProduct(r, step) {
   const c = r.calc || {};
-  return `<div class="cl-row prod">
+  return `<div class="cl-row prod role-product ${r.actual_mass_g != null ? "measured" : ""}">
     <span class="cl-check" aria-hidden="true">${r.actual_mass_g != null ? "✓" : "○"}</span>
     <span class="cl-name">${esc(r.name)} <span class="badge">product</span> ${step}</span>
     <span class="cl-plan">${c.theoretical_mass_g != null ? `theor. ${fmt(c.theoretical_mass_g)} g` : ""}</span>
@@ -141,6 +142,7 @@ function draw(root) {
           <button class="btn" id="proc-add-btn">Add step</button></div>
         ${!isWide ? orphanLog() : ""}
       </div>
+      ${isWide ? resizer("--log-w", "next", 280, 900, "Resize the log") : ""}
       ${isWide ? `<div class="pl-log"><div class="log-scroll"><ol class="log-list">${d.entries.map(entryRow).join("") || '<li class="empty">No entries yet. Everything you log is timestamped.</li>'}</ol></div>
         ${composerHtml()}</div>` : ""}
     </div>
@@ -545,7 +547,9 @@ function mentions(el, { plain = false } = {}) {
     if (!m) return close();
     start = caret - m[0].length;
     const q = m[1].toLowerCase();
-    items = state.data.reagents.filter((r) => [r.name, r.label, r.formula].some((x) => (x || "").toLowerCase().includes(q))).slice(0, 8);
+    const seen = new Set();  // the same chemical in several steps is listed once (mentions resolve by name)
+    items = state.data.reagents.filter((r) => [r.name, r.label, r.formula].some((x) => (x || "").toLowerCase().includes(q)))
+      .filter((r) => !seen.has(labelOf(r).toLowerCase()) && seen.add(labelOf(r).toLowerCase())).slice(0, 8);
     active = 0;
     show();
   });

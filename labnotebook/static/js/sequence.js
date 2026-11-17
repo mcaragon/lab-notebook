@@ -1,5 +1,6 @@
 /* Sequence page: separate experiments linked into one route, with the overall scheme, yields and report. */
 import { $, $$, api, debounce, esc, fmt, toast } from "./util.js";
+import { refreshSidebar } from "./sidebar.js";
 
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
 let seq = null;
@@ -17,14 +18,17 @@ export async function renderSequence(app, id) {
 async function change(app, method, path, body) {
   try {
     const d = await api(method, path, body);
-    if (d?.sequence) { seq = d; draw(app); }
+    if (d?.sequence) { seq = d; draw(app); refreshSidebar(); }
     return d;
   } catch (e) { toast(e.message, true); throw e; }
 }
 
 // Text fields save without redrawing the page (keeps focus while typing)
 const saveField = debounce(async (app, field, value) => {
-  try { seq.sequence = (await api("PUT", `/api/sequences/${seq.sequence.id}`, { [field]: value })).sequence; }
+  try {
+    seq.sequence = (await api("PUT", `/api/sequences/${seq.sequence.id}`, { [field]: value })).sequence;
+    if (field === "title") refreshSidebar();
+  }
   catch (e) { toast("Not saved: " + e.message, true); }
 }, 700);
 
@@ -101,6 +105,7 @@ async function draw(app) {
   $("#seq-del", app).onclick = async () => {
     if (!confirm(`Delete the sequence “${s.title}”? Its experiments are kept.`)) return;
     await api("DELETE", `/api/sequences/${s.id}`);
+    refreshSidebar();
     location.hash = "#/";
   };
 }
