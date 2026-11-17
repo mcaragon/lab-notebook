@@ -226,6 +226,12 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     reason TEXT
 );
 CREATE INDEX IF NOT EXISTS login_attempts_ts ON login_attempts(ts);
+CREATE TABLE IF NOT EXISTS project_materials (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    on_hand_g REAL,
+    PRIMARY KEY (project_id, key)
+);
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '', notes TEXT, scheme_style TEXT NOT NULL DEFAULT 'auto',
@@ -810,6 +816,22 @@ def _project_methods():
     def remove_from_project(self, project_id: int, exp_id: int) -> None:
         with self.conn() as c:
             c.execute("DELETE FROM project_items WHERE project_id = ? AND experiment_id = ?", (project_id, exp_id))
+
+    def material_amounts(self, project_id: int) -> dict:
+        """Amount on hand of each starting-material batch of a project (key -> g)."""
+        with self.conn() as c:
+            return {r[0]: r[1] for r in c.execute(
+                "SELECT key, on_hand_g FROM project_materials WHERE project_id = ? AND on_hand_g IS NOT NULL",
+                (project_id,))}
+
+    def set_material_amount(self, project_id: int, key: str, grams: Optional[float]) -> None:
+        with self.conn() as c:
+            if grams is None:
+                c.execute("DELETE FROM project_materials WHERE project_id = ? AND key = ?", (project_id, key))
+            else:
+                c.execute("INSERT INTO project_materials (project_id, key, on_hand_g) VALUES (?, ?, ?) "
+                          "ON CONFLICT(project_id, key) DO UPDATE SET on_hand_g = excluded.on_hand_g",
+                          (project_id, key, grams))
 
     def projects_of(self, exp_id: int) -> list[dict]:
         with self.conn() as c:

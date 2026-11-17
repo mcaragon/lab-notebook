@@ -126,3 +126,53 @@ def test_project_crud_and_reports(client):
     assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
     assert client.delete(f"/api/projects/{pid}").status_code == 204
     assert client.get(f"/api/experiments/{e1}").status_code == 200  # experiments are kept
+
+
+def test_shared_starting_material_nine_targets(client):
+    """One aldehyde batch, three Henry reactions with different nitroalkanes, each reduced and then halogenated three
+    ways: nine targets from one starting material, each experiment with its own amounts and yield."""
+    first = client.post("/api/experiments", json={"title": "Henry A"}).json()["experiment"]["id"]
+    ald = client.post(f"/api/experiments/{first}/reagents", json={
+        "query": "benzaldehyde", "basis": "mass", "basis_value": 5.0, "lot": "MKCD123", "supplier": "Acme",
+        "is_reference": True}).json()["reagent_id"]
+    client.post(f"/api/experiments/{first}/reagents", json={"name": "Nitromethane", "mw": 61.04, "basis": "equiv",
+                                                            "basis_value": 5})
+    # the other two Henry reactions start from the same batch, each with its own amount
+    b = client.post(f"/api/reagents/{ald}/branch", json={"mass_g": 3.0, "title": "Henry B"}).json()
+    pid = b["project_ids"][0]
+    sm = b["reagents"][0]
+    assert sm["lot"] == "MKCD123" and sm["supplier"] == "Acme" and sm["basis_value"] == 3.0
+    assert sm["source_reagent_id"] is None and sm["is_reference"]
+    c = client.post(f"/api/reagents/{ald}/branch", json={"mass_g": 2.0, "title": "Henry C", "project_id": pid}).json()
+    henry = [first, b["experiment"]["id"], c["experiment"]["id"]]
+    finals = []
+    for i, h in enumerate(henry):
+        p = client.post(f"/api/experiments/{h}/reagents", json={"name": f"Nitroalkene {i}", "role": "product",
+                                                                "mw": 150, "actual_mass_g": 1.0}).json()["reagent_id"]
+        red = client.post(f"/api/reagents/{p}/branch", json={"mass_g": 0.9, "title": f"Reduction {i}"}).json()
+        amine = client.post(f"/api/experiments/{red['experiment']['id']}/reagents",
+                            json={"name": f"Amine {i}", "role": "product", "mw": 120,
+                                  "actual_mass_g": 0.5}).json()["reagent_id"]
+        for x in ("I", "Br", "Cl"):
+            finals.append(client.post(f"/api/reagents/{amine}/branch",
+                                      json={"mass_g": 0.15, "title": f"{x}-{i}"}).json()["experiment"]["id"])
+    proj = client.get(f"/api/projects/{pid}").json()
+    assert len(proj["experiments"]) == 3 + 3 + 9 and {f["id"] for f in proj["final"]} == set(finals)
+    (mat,) = proj["materials"]  # one batch, used three times
+    assert mat["lot"] == "MKCD123" and [u["experiment_id"] for u in mat["uses"]] == henry
+    assert [u["taken_g"] for u in mat["uses"]] == [5.0, 3.0, 2.0] and mat["used_g"] == pytest.approx(10.0)
+    assert proj["map_svg"].count('class="rm-node rm-start"') == 1 and "10.0 g used in 3 experiments" in proj["map_svg"]
+    # each Henry reaction keeps its own scale: same product mass, different yields
+    by = {r["id"]: r for r in proj["summary"]}
+    assert by[henry[0]]["yield"] != by[henry[1]]["yield"]
+    # amount on hand: what is left of the batch
+    d = client.put(f"/api/projects/{pid}/materials", json={"key": mat["key"], "on_hand_g": 25}).json()
+    assert d["materials"][0]["left_g"] == pytest.approx(15.0) and "15.0 g left" in d["map_svg"]
+    d = client.put(f"/api/projects/{pid}/materials", json={"key": mat["key"], "on_hand_g": None}).json()
+    assert d["materials"][0]["on_hand_g"] is None
+    # a different lot is a different batch
+    other = client.post(f"/api/reagents/{ald}/branch", json={"mass_g": 1.0, "title": "Henry D"}).json()
+    client.put(f"/api/reagents/{other['reagents'][0]['id']}", json={"lot": "NEW-LOT"})
+    assert len(client.get(f"/api/projects/{pid}").json()["materials"]) == 2
+    md = client.get(f"/api/projects/{pid}/report.md").text
+    assert "## Starting materials" in md and "MKCD123" in md

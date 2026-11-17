@@ -428,10 +428,18 @@ def build_project_context(proj: dict, bundles: list[dict], calcs: list[dict], g:
     summary = projects.summary_rows(g, ids)
     for r in summary:
         r["number"] = numbers.get(r["product"]["id"]) if r["product"] else None
+    shown = set(ids)
+    materials = []
+    for m in g.get("materials", []):
+        uses = [dict(u, title=node[u["experiment_id"]]["title"]) for u in m["uses"] if u["experiment_id"] in shown]
+        if uses:
+            used = [u["taken_g"] for u in uses if u["taken_g"] is not None]
+            materials.append({**m, "uses": uses, "used_g": sum(used) if used else None,
+                              "number": numbers.get(m["reagent"]["id"])})
     target = node[leaf]["title"] if leaf is not None else None
     return {
         "proj": proj, "title": proj["title"] + (f" — route to {target}" if target else ""), "leaf": target,
-        "chapters": chapters, "summary": summary,
+        "chapters": chapters, "summary": summary, "materials": materials,
         "map_svg": projects.route_svg(g, img, numbers, link=False, only=set(ids), inline_css=True)
         if len(ids) > 1 else "",
         "scheme": sch, "scheme_html": _scheme_html(sch, img) if sch and not sch["empty"] else "",
@@ -632,6 +640,18 @@ def project_markdown(ctx: dict) -> str:
         out += [proj["notes"], ""]
     if ctx["scheme"] and not ctx["scheme"]["empty"]:
         out += ["## Route", ""] + _md_scheme(ctx["scheme"])
+    if ctx["materials"]:
+        out += ["## Starting materials", ""]
+        body = []
+        for m in ctx["materials"]:
+            name = (f"**{m['number']}** " if m.get("number") else "") + m["name"]
+            src = ", ".join(x for x in (m.get("supplier"), f"lot {m['lot']}" if m.get("lot") else "") if x)
+            body.append([name, src, "; ".join(f"{u['title']}" + (f" ({fmt(u['taken_g'])} g)" if u["taken_g"] is not None
+                                                                else "") for u in m["uses"]),
+                         f"{fmt(m['used_g'])} g" if m["used_g"] is not None else "",
+                         f"{fmt(m['on_hand_g'])} g" if m.get("on_hand_g") is not None else "",
+                         f"{fmt(m['on_hand_g'] - (m['used_g'] or 0))} g" if m.get("on_hand_g") is not None else ""])
+        out += _table(["Compound", "Source", "Used in", "Used", "On hand", "Left"], ["l", "l", "l", "r", "r", "r"], body)
     if ctx["summary"]:
         out += ["## Experiments", ""] + _route_table(ctx["summary"])
     if ctx["overall_yield"] is not None:

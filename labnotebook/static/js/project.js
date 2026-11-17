@@ -1,7 +1,7 @@
 /* Project page: experiments linked by material into a route that can branch and converge. Shows the route map, a
    table of the experiments with what each was made from, yields and what is left, branching, and reports (the whole
    project, or the route to one final product). */
-import { $, $$, api, debounce, esc, fmt, toast } from "./util.js";
+import { $, $$, api, debounce, esc, fmt, parseNum, toast } from "./util.js";
 import { refreshSidebar } from "./sidebar.js";
 import { branchFrom } from "./widgets.js";
 
@@ -72,6 +72,22 @@ async function draw(app) {
         continues the route from it. <b>⑂ Branch</b> starts a new experiment from a product; several branches can share one product
         (different reactions, or small-scale trials), and what is left of it is tracked.</p>
     </div>
+    ${proj.materials.length ? `<div class="panel">
+      <div class="row sec-head"><h2>Starting materials</h2><span class="spacer"></span>
+        <span class="hint">One card per batch (same compound and lot) on the map. ⑂ Branch starts another first step from it.</span></div>
+      <div class="table-wrap"><table class="proj-sum mat-sum">
+        <thead><tr><th>Compound</th><th>Used in</th><th class="num">Used</th><th class="num">On hand</th><th class="num">Left</th><th></th></tr></thead>
+        <tbody>${proj.materials.map((m) => `<tr data-key="${esc(m.key)}">
+          <td>${m.number ? `<b>${m.number}</b> ` : ""}${esc(m.name)}
+            <div class="sub">${esc([m.supplier, m.lot ? `lot ${m.lot}` : ""].filter(Boolean).join(" · ") || "no lot entered")}</div></td>
+          <td class="sub">${m.uses.map((u) => `<a href="#/exp/${u.experiment_id}/plan">${esc(u.title)}</a>${u.taken_g != null ? ` · ${fmt(u.taken_g)} g` : ""}`).join("<br>")}</td>
+          <td class="num">${g(m.used_g)}</td>
+          <td class="num"><span class="pct-in"><input class="amt sm" inputmode="decimal" data-onhand="${esc(m.key)}" value="${m.on_hand_g ?? ""}" placeholder="–" aria-label="Amount on hand (g)"> g</span></td>
+          <td class="num ${m.left_g != null && m.left_g < 0 ? "neg" : ""}">${m.left_g != null ? g(m.left_g) : "–"}</td>
+          <td class="actions"><button class="btn small" data-branch-sm="${m.reagent_id}" title="New first step from this batch">⑂ Branch</button></td>
+        </tr>`).join("")}</tbody></table></div>
+      <p class="hint">Enter the amount on hand to track what is left. A different lot number makes a separate batch.</p>
+    </div>` : ""}
     ${rows.length ? `<div class="panel">
       <div class="row sec-head"><h2>Experiments</h2></div>
       <div class="table-wrap"><table class="proj-sum">
@@ -108,6 +124,16 @@ async function draw(app) {
     const d = await change(app, "POST", `/api/projects/${p.id}/new`, { title: "New experiment" });
     if (d?.experiment_id) location.hash = `#/exp/${d.experiment_id}/plan`;
   };
+  $$("[data-branch-sm]", app).forEach((b) => (b.onclick = async () => {
+    const m = proj.materials.find((x) => x.reagent_id === Number(b.dataset.branchSm));
+    const out = await branchFrom({ id: m.reagent_id, name: m.name }, m.left_g);
+    if (out) location.hash = `#/exp/${out.experiment.id}/plan`;
+  }));
+  $$("[data-onhand]", app).forEach((inp) => inp.addEventListener("change", () => {
+    const v = parseNum(inp.value);
+    if (Number.isNaN(v) || (v !== null && v < 0)) { toast("Enter an amount in g.", true); return; }
+    change(app, "PUT", `/api/projects/${p.id}/materials`, { key: inp.dataset.onhand, on_hand_g: v });
+  }));
   $$("[data-branch]", app).forEach((b) => (b.onclick = async () => {
     const r = rows.find((x) => x.product_id === Number(b.dataset.branch));
     const out = await branchFrom({ id: r.product_id, name: r.product }, r.remaining_g ?? r.isolated_g);
