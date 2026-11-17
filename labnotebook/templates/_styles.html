@@ -1,0 +1,53 @@
+<style>
+  @page { size: A4; margin: 15mm 13mm 17mm;
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt "DejaVu Sans", sans-serif; color: #666; }
+    @bottom-left { content: "{{ page_title | replace('"', '') }}"; font: 8pt "DejaVu Sans", sans-serif; color: #666; } }
+  :root { --ink: #1b1f24; --muted: #5b6470; --line: #d5dae0; --accent: #1f5f99; }
+  * { box-sizing: border-box; }
+  body { font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif; color: var(--ink); background: #fff;
+         font-size: 9pt; line-height: 1.38; margin: 0; }
+  main { max-width: 190mm; margin: 0 auto; padding: {{ '0' if for_pdf else '24px 16px 48px' }}; }
+  h1 { font-size: 17pt; margin: 0 0 4px; }
+  h2 { font-size: 12.5pt; color: var(--accent); border-bottom: 1px solid var(--line); padding-bottom: 2px; margin: 16px 0 6px; break-after: avoid; }
+  h3 { font-size: 11pt; color: var(--accent); margin: 14px 0 5px; break-after: avoid; }
+  h4 { font-size: 9.5pt; margin: 10px 0 4px; break-after: avoid; }
+  h5 { font-size: 9pt; margin: 8px 0 3px; break-after: avoid; }
+  .chapter { break-before: auto; }
+  .step-chapter { border-left: 3px solid var(--line); padding-left: 8px; margin: 10px 0 14px; }
+  .meta { color: var(--muted); margin-bottom: 8px; }
+  .meta span + span::before { content: " · "; }
+  table { border-collapse: collapse; width: 100%; margin: 4px 0 6px; font-size: 8pt; }
+  th, td { border-bottom: 1px solid var(--line); padding: 3px 4px; text-align: left; vertical-align: top; }
+  th { background: #f2f4f7; font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr { break-inside: avoid; }
+  .small { font-size: 7pt; color: var(--muted); }
+  .tag { font-size: 6.5pt; border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; color: var(--muted); white-space: nowrap; }
+  .lim { color: var(--accent); border-color: var(--accent); }
+  .reag td.cmp { width: 29%; }
+  .reag td.hz { width: 33%; }
+  .reag td.props { width: 11%; }
+  .ghs { width: 5.6mm; height: 5.6mm; vertical-align: middle; }
+  svg.nfpa { vertical-align: middle; }
+  .codes { font-size: 7.5pt; }
+  .danger { color: #a33; font-weight: 600; } .warning { color: #a66400; font-weight: 600; }
+  .forbidden { color: #fff; background: #b42323; border-radius: 2px; padding: 0 3px; font-weight: 700; font-size: 7pt; }
+  .alert { color: #a33; font-size: 7pt; }
+  .legend { font-size: 7pt; color: var(--muted); margin: 0 0 8px; }
+  .legend b { color: var(--ink); }
+  .footnote { font-size: 7pt; color: var(--muted); margin: 0 0 4px; }
+  .prose p { margin: 4px 0; }
+  .prose ol, .prose ul { margin: 4px 0; padding-left: 20px; }
+  ol.procedure { padding-left: 18px; margin: 4px 0; }
+  ol.procedure li { margin: 2px 0; break-inside: avoid; }
+  ol.procedure .note { color: var(--muted); font-style: italic; }
+  .mention b { font-weight: 600; }
+  ol.refs { padding-left: 20px; margin: 4px 0; }
+  ol.refs li { margin: 2px 0; }
+  .scheme-box { margin: 6px 0 4px; break-inside: avoid; }
+  .conditions { font-size: 8pt; color: var(--muted); margin: 0 0 4px; }
+  footer { margin-top: 20px; color: var(--muted); font-size: 7pt; }
+  @media print { main { padding: 0; } .noprint { display: none; } }
+  .noprint { margin-bottom: 16px; }
+  .noprint button { font: inherit; padding: 6px 14px; border: 1px solid var(--line); background: #f2f4f7; border-radius: 6px; cursor: pointer; }
+</style>

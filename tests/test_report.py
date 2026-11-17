@@ -40,16 +40,20 @@ def test_markdown_report(client):
     r = client.get(f"/api/experiments/{exp_id}/report.md?download=true")
     assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
     md = r.text
-    for heading in ["# Reduction of benzaldehyde", "## Objective", "## Reaction", "## Reagents", "## Safety",
-                    "## Procedure", "## Log", "## Results", "## Discussion", "## References"]:
+    for heading in ["# Reduction of benzaldehyde", "## Objective", "## Reaction", "## Reagents",
+                    "## Procedure", "## Log", "## Yield", "## Discussion", "## References"]:
         assert heading in md, heading
-    assert "Benzaldehyde (99%, Acme, lot L7) — limiting" in md
-    assert "- Benzaldehyde: freshly distilled" in md
+    assert "## Safety" not in md  # hazards are in the reagent table
+    # only one amount per row: the measured one, else the planned one marked with *
+    assert "| Benzaldehyde (99%, Acme, lot L7; freshly distilled) — limiting | Reactant | 106.12 | 1.04 g | 9.80 | 1.00 |" in md
+    assert "| 0.189 g * | 4.99 | 0.50 |" in md and "\\* planned amount" in md
+    assert "GHS07; Warning; H302; fp 64 °C" in md
+    assert "Hazard statements: " in md and "H302: Harmful if swallowed" in md
     assert "Sodium borohydride (0.50 equiv), Methanol, 0 °C, 15 min; then rt, 2 h" in md
     assert "1. Dissolve Benzaldehyde (1.04 g, 9.80 mmol) in Methanol (15.0 mL)." in md
     assert "*Note:* Use dry MeOH" in md
     assert "DOT: forbidden for transport" in md and "Do not let it dry out" in md
-    assert "NFPA 704: 1-3-0" in md  # methanol
+    assert "NFPA 1-3-0" in md  # methanol
     assert "90% (0.954 g) [1]" in md  # expected yield with its reference
     assert "84.9%" in md  # 0.9 g / (9.80 mmol × 108.14 g/mol = 1.060 g)
     assert "1. Smith, J.; Doe, A. A reduction. J. Org. Chem. 2020, 85, 1–10. DOI: 10.1000/xyz." in md

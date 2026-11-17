@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__, actions, db, hazards, report, scheme, stoich, structures
+from . import __version__, actions, db, hazards, report, scheme, sequences, stoich, structures
 from .config import Settings, load_settings
 from .pubchem import PubChemClient, PubChemUnavailable, summary_to_reagent
 
@@ -128,6 +128,17 @@ class RefIn(BaseModel):
     text: Optional[str] = None
 
 
+class SequenceIn(BaseModel):
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    scheme_style: Optional[Literal["auto", "inline", "lettered"]] = None
+    experiment_ids: Optional[list[int]] = None  # create only
+
+
+class SequenceAdd(BaseModel):
+    experiment_id: int
+
+
 class RefreshIn(BaseModel):
     fields: Optional[list[str]] = None  # None = every PubChem field
 
@@ -198,6 +209,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         b["stoich"] = {"steps": calc["steps"], "overall_yield": calc["overall_yield"]}
         b["scheme_html"] = report.scheme_html(b, calc, lambda r, w, h: _struct_url(r, w, h))
         b["server_time"] = db.now()
+        b["sequences"] = store.sequences_of(exp_id)
         return b
 
     def _struct_url(r: dict, w: int, h: int) -> Optional[str]:
@@ -676,6 +688,148 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         with store.conn() as c:
             c.execute("UPDATE reagents SET expected_ref_id = NULL WHERE expected_ref_id = ?", (rid,))
         return detail(r["experiment_id"])
+
+    # -------------------------------------------------------------- sequences
+    def need_seq(seq_id: int) -> dict:
+        seq = store.get_sequence(seq_id)
+        if not seq:
+            raise HTTPException(404, "Sequence not found")
+        return seq
+
+    def seq_bundles(seq: dict) -> list[dict]:
+        return [b for b in (store.bundle(eid) for eid in seq["experiment_ids"]) if b]
+
+    def seq_detail(seq_id: int) -> dict:
+        seq = need_seq(seq_id)
+        bundles = seq_bundles(seq)
+        combined, calc = sequences.compute(bundles)
+        rows = sequences.summary(bundles, calc)
+        # experiments after the first should start from the previous experiment's product
+        links = []
+        for i, b in enumerate(bundles):
+            if i == 0 or not b["steps"]:
+                links.append(None)
+                continue
+            first = b["steps"][0]["id"]
+            prev_ids = {r["id"] for r in bundles[i - 1]["reagents"] if r.get("role") == "product"}
+            linked = any(r.get("source_reagent_id") in prev_ids for r in combined["reagents"]
+                         if r.get("step_id") == first and r.get("role") == "reactant")
+            links.append(linked)
+        sch_bundle = dict(combined, experiment={"scheme_style": seq.get("scheme_style")})
+        return {
+            "sequence": {k: seq[k] for k in ("id", "title", "notes", "scheme_style", "created_at", "updated_at")},
+            "experiments": [{**{k: b["experiment"].get(k) for k in ("id", "title", "date", "status", "author")},
+                             "n_steps": len(b["steps"]), "linked": links[i]} for i, b in enumerate(bundles)],
+            "summary": [{"n": r["n"], "experiment_id": r["experiment"]["id"], "experiment": r["experiment"]["title"],
+                         "date": r["experiment"].get("date"), "step_in_exp": r["step_in_exp"],
+                         "n_steps_exp": r["n_steps_exp"], "product": r["product"]["name"] if r["product"] else None,
+                         "isolated_mass_g": r["isolated_mass_g"], "yield": r["yield"]} for r in rows],
+            "overall_yield": sequences.overall_yield(rows),
+            "scheme_html": report.scheme_html(sch_bundle, calc, lambda r, w, h: _struct_url(r, w, h)),
+        }
+
+    @app.get("/api/sequences")
+    def list_sequences():
+        return {"sequences": store.list_sequences()}
+
+    @app.post("/api/sequences", status_code=201)
+    def create_sequence(body: SequenceIn):
+        data = body.model_dump(exclude_unset=True)
+        ids = data.pop("experiment_ids", None) or []
+        for eid in ids:
+            need_exp(eid)
+        return seq_detail(store.create_sequence(data, ids))
+
+    @app.get("/api/sequences/{seq_id}")
+    def get_sequence(seq_id: int):
+        return seq_detail(seq_id)
+
+    @app.put("/api/sequences/{seq_id}")
+    def update_sequence(seq_id: int, body: SequenceIn):
+        need_seq(seq_id)
+        data = body.model_dump(exclude_unset=True)
+        data.pop("experiment_ids", None)
+        store.update_sequence(seq_id, data)
+        return seq_detail(seq_id)
+
+    @app.delete("/api/sequences/{seq_id}", status_code=204)
+    def delete_sequence(seq_id: int):
+        need_seq(seq_id)
+        store.delete("sequences", seq_id)
+        return Response(status_code=204)
+
+    @app.post("/api/sequences/{seq_id}/experiments")
+    def add_to_sequence(seq_id: int, body: SequenceAdd):
+        need_seq(seq_id)
+        need_exp(body.experiment_id)
+        store.add_to_sequence(seq_id, body.experiment_id)
+        return seq_detail(seq_id)
+
+    @app.delete("/api/sequences/{seq_id}/experiments/{exp_id}")
+    def remove_from_sequence(seq_id: int, exp_id: int):
+        need_seq(seq_id)
+        store.remove_from_sequence(seq_id, exp_id)
+        return seq_detail(seq_id)
+
+    @app.put("/api/sequences/{seq_id}/order")
+    def order_sequence(seq_id: int, ids: list[int]):
+        need_seq(seq_id)
+        store.order_sequence(seq_id, ids)
+        return seq_detail(seq_id)
+
+    @app.post("/api/sequences/{seq_id}/next", status_code=201)
+    def next_experiment(seq_id: int, body: ExperimentIn):
+        """New experiment for the next step, starting from the last product of the sequence."""
+        seq = need_seq(seq_id)
+        data = body.model_dump(exclude_unset=True)
+        n = len(seq["experiment_ids"]) + 1
+        data.setdefault("title", f"{seq['title']}: step {n}")
+        if not data.get("author") and settings.author:
+            data["author"] = settings.author
+        eid = store.create_experiment(data)
+        store.add_to_sequence(seq_id, eid)
+        products = []
+        for prev in reversed(seq["experiment_ids"]):
+            b = store.bundle(prev)
+            if b and b["steps"]:
+                last = b["steps"][-1]["id"]
+                products = [r for r in b["reagents"] if r.get("step_id") == last and r.get("role") == "product"]
+                if products:
+                    break
+        if products:
+            _carry(eid, store.list("steps", "experiment_id = ?", (eid,))[0]["id"], products[0])
+        out = seq_detail(seq_id)
+        out["experiment_id"] = eid
+        return out
+
+    def _seq_ctx(seq_id: int, embed: bool) -> dict:
+        seq = need_seq(seq_id)
+        bundles = seq_bundles(seq)
+        calcs = [compute(b) for b in bundles]
+        return report.build_sequence_context(seq, bundles, calcs, settings, client if embed else None)
+
+    @app.get("/api/sequences/{seq_id}/report.md", response_class=PlainTextResponse)
+    def sequence_md(seq_id: int, download: bool = False):
+        ctx = _seq_ctx(seq_id, embed=False)
+        headers = ({"Content-Disposition": f'attachment; filename="{_slug(ctx["seq"]["title"])}.md"'}
+                   if download else {})
+        return PlainTextResponse(report.sequence_markdown(ctx), media_type="text/markdown; charset=utf-8",
+                                 headers=headers)
+
+    @app.get("/api/sequences/{seq_id}/report.html", response_class=HTMLResponse)
+    def sequence_report_html(seq_id: int):
+        return HTMLResponse(report.sequence_html(_seq_ctx(seq_id, embed=True)))
+
+    @app.get("/api/sequences/{seq_id}/report.pdf")
+    def sequence_pdf(seq_id: int, download: bool = True):
+        ctx = _seq_ctx(seq_id, embed=True)
+        try:
+            pdf = report.to_pdf(report.sequence_html(ctx, for_pdf=True))
+        except (ImportError, OSError) as e:
+            raise HTTPException(501, f"PDF export is not available on this system: {e}")
+        disp = "attachment" if download else "inline"
+        return Response(pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'{disp}; filename="{_slug(ctx["seq"]["title"])}.pdf"'})
 
     # -------------------------------------------------------------- PubChem Local proxy
     def _pc(fn, *args):

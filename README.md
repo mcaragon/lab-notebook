@@ -5,8 +5,12 @@ as its chemical data source and runs as its own Docker container (built for Unra
 
 - **One page per experiment**: overview, reaction scheme, reagents, procedure & log, results, references and report,
   with a section menu. A bench bar with the experiment clock stays at the top while you work.
-- **Multi-step experiments.** Each step has its own reagents and condition stages (e.g. 0 °C, 15 min; then rt, 2 h).
-  A new step starts from the previous step's product, carrying over the isolated amount.
+- **Multi-step work, two ways.** Steps inside one experiment (one-pot or telescoped sequences done in one session):
+  each step has its own reagents and condition stages (e.g. 0 °C, 15 min; then rt, 2 h) and starts from the previous
+  step's product. **Sequences** link separate experiments, e.g. one per step on different days, also after the fact:
+  an experiment continues the route when one of its starting materials is the previous experiment's product.
+  "Next experiment" starts a new one from the last product. A sequence has an overall scheme, a yield per step and
+  an overall yield, and a combined report with one chapter per experiment.
 - **Reaction scheme** drawn the organic chemistry way: numbered structures, reagents and catalysts above each arrow,
   solvent, atmosphere and conditions below, yields under the products. Long conditions switch to lettered arrows with
   a legend.
@@ -29,7 +33,11 @@ as its chemical data source and runs as its own Docker container (built for Unra
   countdowns with a sound, vibration and notification alert. Timers keep running across reloads and devices.
 - **References as numbered rows** (authors, title, journal, year, volume, pages, DOI) or free text; PubChem citations
   are added automatically.
-- **Lab report** as PDF, Markdown or a printable HTML page.
+- **Lab report** as PDF, Markdown or a printable HTML page. The reagent table shows the measured amount of each
+  chemical (the planned one, marked, when nothing was measured), its properties and its hazards: pictograms, signal
+  word, H-codes (full statements listed once below the table), flash point, DOT, NFPA and reactivity alerts. A
+  multi-step experiment has an overall scheme and then one chapter per step with its own scheme, reagents, procedure,
+  log and yield.
 - Works without PubChem Local too: all data can be entered by hand.
 
 Single user, no login. Intended for your LAN or Tailscale; the layout adapts from laptop (procedure and log side by

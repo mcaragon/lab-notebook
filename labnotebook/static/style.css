@@ -292,3 +292,14 @@ iframe.preview { width: 100%; height: 80vh; border: 1px solid var(--line); borde
   .stage-no { display: none; }
   .composer-phone { margin: 10px -12px -12px; padding: 8px 12px; }
 }
+
+/* sequences */
+.seq-list { list-style: none; margin: 0 0 10px; padding: 0; }
+.seq-list li { display: flex; gap: 8px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.seq-no { font-weight: 700; color: var(--accent); min-width: 20px; }
+.seq-sum { border-collapse: collapse; width: 100%; font-size: .9rem; }
+.seq-sum th, .seq-sum td { border-bottom: 1px solid var(--line); padding: 5px 6px; text-align: left; }
+.seq-sum th { font-size: .75rem; color: var(--muted); }
+.seq-sum .num { text-align: right; }
+.table-wrap { overflow-x: auto; }
+.seq-row .chip { text-decoration: none; color: var(--accent); }

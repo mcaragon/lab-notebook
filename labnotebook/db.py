@@ -48,6 +48,8 @@ FIELDS = {
     "timers": ["label", "kind", "started_at", "duration_s", "stopped_at", "elapsed_s", "start_entry_id",
                "stop_entry_id", "procedure_id", "reagent_id"],
     "refs": ["position", "authors", "title", "source", "year", "volume", "pages", "doi", "url", "text"],
+    "sequences": ["title", "notes", "scheme_style"],
+    "sequence_items": ["position"],
 }
 BOOL_FIELDS = {"is_reference", "custom_text"}
 # Tables whose rows belong directly to an experiment (others belong to a step)
@@ -143,6 +145,18 @@ CREATE TABLE refs (
     experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
     position INTEGER NOT NULL DEFAULT 0,
     authors TEXT, title TEXT, source TEXT, year TEXT, volume TEXT, pages TEXT, doi TEXT, url TEXT, text TEXT
+);
+CREATE TABLE sequences (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT '', notes TEXT, scheme_style TEXT NOT NULL DEFAULT 'auto',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE sequence_items (
+    id INTEGER PRIMARY KEY,
+    sequence_id INTEGER NOT NULL REFERENCES sequences(id) ON DELETE CASCADE,
+    experiment_id INTEGER NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (sequence_id, experiment_id)
 );
 CREATE INDEX IF NOT EXISTS reagents_exp_step ON reagents(experiment_id, step_id, position);
 CREATE INDEX IF NOT EXISTS entries_exp ON entries(experiment_id, ts);
@@ -435,3 +449,74 @@ def stoich_rows(reagents: list[dict]) -> list[dict]:
             "solution_density", "coefficient", "basis", "basis_value", "is_reference", "actual_basis",
             "actual_value", "actual_mass_g", "crude_mass_g", "expected_yield_pct")
     return [{k: r.get(k) for k in keys} for r in reagents]
+
+
+# ---------------------------------------------------------------------------------------------- sequences
+def _seq_methods():
+    """Sequence storage (attached to Store below to keep the class readable)."""
+
+    def list_sequences(self) -> list[dict]:
+        with self.conn() as c:
+            seqs = [dict(r) for r in c.execute("SELECT * FROM sequences ORDER BY updated_at DESC, id DESC")]
+            for q in seqs:
+                q["experiments"] = [dict(r) for r in c.execute(
+                    "SELECT e.id, e.title, e.date, e.status FROM sequence_items i JOIN experiments e "
+                    "ON e.id = i.experiment_id WHERE i.sequence_id = ? ORDER BY i.position, i.id", (q["id"],))]
+        return seqs
+
+    def create_sequence(self, data: dict, experiment_ids: Iterable[int] = ()) -> int:
+        vals = {k: v for k, v in self._in("sequences", data).items() if v is not None}
+        vals.setdefault("title", "Untitled sequence")
+        vals["created_at"] = vals["updated_at"] = now()
+        cols = ", ".join(_q(k) for k in vals)
+        with self.conn() as c:
+            sid = c.execute(f"INSERT INTO sequences ({cols}) VALUES ({', '.join('?' * len(vals))})",
+                            list(vals.values())).lastrowid
+        for eid in experiment_ids:
+            self.add_to_sequence(sid, eid)
+        return sid
+
+    def get_sequence(self, seq_id: int) -> Optional[dict]:
+        seq = self.get("sequences", seq_id)
+        if seq:
+            with self.conn() as c:
+                seq["experiment_ids"] = [r[0] for r in c.execute(
+                    "SELECT experiment_id FROM sequence_items WHERE sequence_id = ? ORDER BY position, id", (seq_id,))]
+        return seq
+
+    def update_sequence(self, seq_id: int, data: dict) -> None:
+        vals = self._in("sequences", data)
+        vals["updated_at"] = now()
+        sets = ", ".join(f"{_q(k)} = ?" for k in vals)
+        with self.conn() as c:
+            c.execute(f"UPDATE sequences SET {sets} WHERE id = ?", [*vals.values(), seq_id])
+
+    def add_to_sequence(self, seq_id: int, exp_id: int) -> None:
+        with self.conn() as c:
+            pos = c.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM sequence_items WHERE sequence_id = ?",
+                            (seq_id,)).fetchone()[0]
+            c.execute("INSERT OR IGNORE INTO sequence_items (sequence_id, experiment_id, position) VALUES (?, ?, ?)",
+                      (seq_id, exp_id, pos))
+            c.execute("UPDATE sequences SET updated_at = ? WHERE id = ?", (now(), seq_id))
+
+    def remove_from_sequence(self, seq_id: int, exp_id: int) -> None:
+        with self.conn() as c:
+            c.execute("DELETE FROM sequence_items WHERE sequence_id = ? AND experiment_id = ?", (seq_id, exp_id))
+
+    def order_sequence(self, seq_id: int, exp_ids: list[int]) -> None:
+        with self.conn() as c:
+            for pos, eid in enumerate(exp_ids):
+                c.execute("UPDATE sequence_items SET position = ? WHERE sequence_id = ? AND experiment_id = ?",
+                          (pos, seq_id, eid))
+
+    def sequences_of(self, exp_id: int) -> list[dict]:
+        with self.conn() as c:
+            return [dict(r) for r in c.execute(
+                "SELECT s.id, s.title FROM sequence_items i JOIN sequences s ON s.id = i.sequence_id "
+                "WHERE i.experiment_id = ? ORDER BY s.id", (exp_id,))]
+
+    return locals()
+
+
+for _name, _fn in _seq_methods().items():
+    setattr(Store, _name, _fn)

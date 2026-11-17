@@ -1,4 +1,5 @@
-/* Lab Notebook frontend: vanilla JS modules, no build step. Routes: #/ (list), #/exp/<id>[/<section>]. */
+/* Lab Notebook frontend: vanilla JS modules, no build step.
+   Routes: #/ (list), #/exp/<id>[/<section>], #/seq/<id>. */
 import { $, $$, api, debounce, esc, toast } from "./util.js";
 import { state, setData, expId } from "./state.js";
 import { flushExp, saveExp, sectionField, bindSections, hasPendingExp } from "./expfields.js";
@@ -7,6 +8,7 @@ import { renderReagents } from "./reagents.js";
 import { renderProcedure } from "./procedure.js";
 import { renderBench, startTicker } from "./bench.js";
 import { renderResults, renderRefs, renderReport } from "./results.js";
+import { renderSequence } from "./sequence.js";
 
 const app = $("#app");
 const SECTIONS = [
@@ -48,6 +50,12 @@ async function route() {
       setData(state.data);
     }
     if (parts[2]) document.getElementById(`sec-${parts[2]}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else if (parts[0] === "seq" && parts[1]) {
+    await flushExp.flush();
+    state.data = null;
+    state.renderers = [];
+    document.body.classList.remove("running");
+    renderSequence(app, Number(parts[1]));
   } else {
     await flushExp.flush();
     state.data = null;
@@ -61,7 +69,27 @@ async function renderList() {
   document.title = "Lab Notebook";
   document.body.classList.remove("running");
   app.innerHTML = `<div class="panel list-panel"><div class="row"><h2 style="margin:0">Experiments</h2><span class="spacer"></span>
-    <button class="btn primary" id="new-exp">+ New experiment</button></div><div id="list" class="empty">Loading…</div></div>`;
+    <button class="btn primary" id="new-exp">+ New experiment</button></div><div id="list" class="empty">Loading…</div></div>
+    <div class="panel list-panel"><div class="row"><h2 style="margin:0">Sequences</h2><span class="spacer"></span>
+    <button class="btn" id="new-seq">+ New sequence</button></div>
+    <p class="hint">A sequence links separate experiments (e.g. one per step, on different days) into one route with an overall
+      scheme, yield and combined report.</p><div id="seqs" class="empty">Loading…</div></div>`;
+  $("#new-seq").onclick = async () => {
+    try {
+      const d = await api("POST", "/api/sequences", { title: "New sequence" });
+      location.hash = `#/seq/${d.sequence.id}`;
+    } catch (e) { toast(e.message, true); }
+  };
+  api("GET", "/api/sequences").then(({ sequences }) => {
+    const box = $("#seqs");
+    if (!box) return;
+    if (!sequences.length) { box.textContent = "No sequences yet."; return; }
+    box.className = "";
+    box.innerHTML = `<ul class="exp-list">${sequences.map((q) => `<li><a href="#/seq/${q.id}">
+      <span class="title">${esc(q.title)}</span>
+      <span class="muted small">${q.experiments.map((e) => esc(e.title)).join(" → ")}</span>
+      <span class="muted small">${q.experiments.length} experiment${q.experiments.length === 1 ? "" : "s"}</span></a></li>`).join("")}</ul>`;
+  }).catch(() => { const box = $("#seqs"); if (box) box.textContent = "Could not load sequences."; });
   $("#new-exp").onclick = async () => {
     try {
       const d = await api("POST", "/api/experiments", { title: "New experiment" });
@@ -148,6 +176,11 @@ function renderOverview(root) {
     </div>
     <div style="height:12px"></div>
     ${sectionField("objective", "Objective", "", 3)}
+    <div class="row seq-row" style="margin-top:12px">
+      <span class="small muted">Sequence:</span>
+      ${(state.data.sequences || []).map((q) => `<a class="chip" href="#/seq/${q.id}">${esc(q.title)}</a>`).join("") || '<span class="small muted">none</span>'}
+      <select id="seq-pick" aria-label="Add to a sequence"><option value="">Add to sequence…</option><option value="new">New sequence…</option></select>
+    </div>
     <div class="row" style="margin-top:12px">
       <button class="btn" id="dup">Duplicate as new plan</button><span class="spacer"></span>
       <button class="btn danger" id="del">Delete experiment</button>
@@ -155,6 +188,26 @@ function renderOverview(root) {
   [["f-date", "date"], ["f-author", "author"], ["f-course", "course"]].forEach(([id, k]) =>
     $("#" + id, root).addEventListener("input", (e) => saveExp({ [k]: e.target.value })));
   $("#f-status", root).addEventListener("change", (e) => saveExp({ status: e.target.value }, true));
+  const pick = $("#seq-pick", root);
+  api("GET", "/api/sequences").then(({ sequences }) => {
+    const mine = new Set((state.data.sequences || []).map((q) => q.id));
+    pick.insertAdjacentHTML("beforeend", sequences.filter((q) => !mine.has(q.id))
+      .map((q) => `<option value="${q.id}">${esc(q.title)}</option>`).join(""));
+  }).catch(() => {});
+  pick.onchange = async () => {
+    try {
+      if (pick.value === "new") {
+        const title = prompt("Name of the new sequence:", exp.title);
+        if (!title) { pick.value = ""; return; }
+        const d = await api("POST", "/api/sequences", { title, experiment_ids: [exp.id] });
+        location.hash = `#/seq/${d.sequence.id}`;
+      } else if (pick.value) {
+        const d = await api("POST", `/api/sequences/${pick.value}/experiments`, { experiment_id: exp.id });
+        state.data = null;
+        location.hash = `#/seq/${d.sequence.id}`;
+      }
+    } catch (e) { toast(e.message, true); }
+  };
   bindSections(root);
   $("#dup", root).onclick = async () => {
     try {

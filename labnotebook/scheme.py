@@ -47,8 +47,12 @@ def conditions_text(step: dict) -> str:
     return "; then ".join(stages)
 
 
-def build(bundle: dict, calc: dict, style: Optional[str] = None) -> dict:
+def build(bundle: dict, calc: dict, style: Optional[str] = None, numbers: Optional[dict] = None,
+          first_index: int = 0) -> dict:
     """Scheme layout.
+
+    ``numbers`` presets compound numbers (reagent id -> n), so a scheme of one step uses the numbering of the
+    overall scheme; ``first_index`` is the index of the first step (for its arrow letter).
 
     Returns ``{"segments": [...], "lettered": bool, "legend": [(letter, text)], "numbers": {reagent_id: n}}``.
     Segment types: ``{"type": "mols", "mols": [{"reagent", "number", "yield"}]}`` and
@@ -58,7 +62,7 @@ def build(bundle: dict, calc: dict, style: Optional[str] = None) -> dict:
     reagents = bundle["reagents"]
     rows = calc["rows"]
     by_step = {s["id"]: [r for r in reagents if r.get("step_id") == s["id"]] for s in steps}
-    numbers: dict[int, int] = {}
+    numbers = dict(numbers or {})
     segments: list[dict] = []
     arrows: list[dict] = []
 
@@ -66,6 +70,10 @@ def build(bundle: dict, calc: dict, style: Optional[str] = None) -> dict:
 
     def ident(r: dict) -> Any:
         return r.get("cid") or (r.get("smiles") or "").strip() or (r.get("name") or "").strip().lower() or r["id"]
+
+    for r in reagents:
+        if r["id"] in numbers:
+            by_ident.setdefault(ident(r), numbers[r["id"]])
 
     def mol(r: dict, with_yield: bool = False) -> dict:
         """Number compounds in order of appearance; the same compound keeps its number."""
@@ -115,8 +123,8 @@ def build(bundle: dict, calc: dict, style: Optional[str] = None) -> dict:
         cond = conditions_text(s)
         if cond:
             below.append(cond)
-        arrow = {"type": "arrow", "letter": chr(ord("a") + i), "above": above, "below": below,
-                 "step_id": s["id"], "step_no": i + 1}
+        arrow = {"type": "arrow", "letter": chr(ord("a") + first_index + i), "above": above, "below": below,
+                 "step_id": s["id"], "step_no": first_index + i + 1}
         segments.append(arrow)
         arrows.append(arrow)
         products = [r for r in rs if r.get("role") == "product" and pos(r) != "hidden"]
@@ -124,7 +132,7 @@ def build(bundle: dict, calc: dict, style: Optional[str] = None) -> dict:
             segments.append({"type": "mols", "mols": [mol(r, with_yield=True) for r in products]})
         prev_products = products
 
-    style = style or bundle["experiment"].get("scheme_style") or "auto"
+    style = style or (bundle.get("experiment") or {}).get("scheme_style") or "auto"
     longest = max((len(", ".join(a["above"])) for a in arrows), default=0)
     longest = max([longest] + [len(", ".join(a["below"])) for a in arrows])
     lettered = style == "lettered" or (style == "auto" and (longest > 34 or len(arrows) > 2))
@@ -206,3 +214,10 @@ def render_mentions(text: str, reagents: list[dict], rows: dict, mode: str = "te
     tail = (text or "")[last:]
     out.append(_html.escape(tail) if mode == "html" else tail)
     return "".join(out)
+
+
+def build_step(bundle: dict, calc: dict, step_index: int, numbers: dict, offset: int = 0) -> dict:
+    """Scheme of a single step, numbered like the overall scheme."""
+    s = bundle["steps"][step_index]
+    sub = dict(bundle, steps=[s], reagents=[r for r in bundle["reagents"] if r.get("step_id") == s["id"]])
+    return build(sub, calc, style="inline", numbers=numbers, first_index=offset + step_index)
