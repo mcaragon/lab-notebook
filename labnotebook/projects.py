@@ -4,6 +4,10 @@ A link is a starting material taken from the product of another experiment (``so
 project is the graph of those links between its experiments: one product can feed several experiments (branches,
 small-scale trials), and an experiment can take products of several (convergent routes).
 
+Starting materials that do not come from another experiment are grouped into *batches*: the same compound (and
+the same lot, when one is entered) used by several first experiments is one batch, drawn once with an arrow to each
+experiment and the amount each took. A project can record how much of a batch is on hand, to show what is left.
+
 The route map lays the graph out left to right: an experiment's column is the length of the longest chain of links
 leading to it; rows follow a tree of "main parents" (the deepest parent of each experiment), so branches fan out from
 the experiment they start from. Extra parents (convergence) get their own connectors.
@@ -32,12 +36,24 @@ def product_of(bundle: dict) -> Optional[dict]:
     return prods[0] if prods else None
 
 
-def graph(bundles: list[dict], calcs: list[dict]) -> dict:
+def _ident(r: dict) -> str:
+    return str(r.get("cid") or (r.get("smiles") or "").strip() or (r.get("name") or "").strip().lower() or r["id"])
+
+
+def material_key(r: dict) -> str:
+    """Identity of a starting-material batch: the compound, plus the lot when one is entered."""
+    return f"{_ident(r)}|{(r.get('lot') or '').strip().lower()}"
+
+
+def graph(bundles: list[dict], calcs: list[dict], on_hand: Optional[dict] = None) -> dict:
     """Nodes (experiments) and edges (material links) of a project, with layout and yields.
 
     Each node: ``id, title, date, status, col, row, product, number, yield, isolated_g, used_g, remaining_g,
-    overall_yield, lls, parents, children, main_parent, starting``; ``starting`` lists the starting materials that
-    do not come from another experiment of the project (``{reagent, name, taken_g}``). Each edge: ``from, to, product_id, reagent_id, taken_g,
+    overall_yield, lls, parents, children, main_parent, starting, main_start``; ``starting`` lists the starting
+    materials that do not come from another experiment of the project (``{reagent, name, taken_g, key}``) and
+    ``main_start`` is the one the route starts from (the reference reagent, else the limiting one, else the first).
+    ``materials`` are the batches the first experiments start from: ``{key, reagent, name, lot, supplier, uses:
+    [{experiment_id, reagent_id, taken_g}], used_g, on_hand_g, left_g}``; ``on_hand`` gives amounts by key. Each edge: ``from, to, product_id, reagent_id, taken_g,
     main`` (main: part of the layout tree).
     """
     order = [b["experiment"]["id"] for b in bundles]
@@ -82,6 +98,36 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
     tree = {n: [m for m in order if main_parent[m] == n] for n in order}
     roots = [n for n in order if main_parent[n] is None]
 
+    # starting materials of each experiment that do not come from another experiment; the main one starts the route
+    starting, main_start = {}, {}
+    for n in order:
+        b, c = by_id[n]
+        linked = {e["reagent_id"] for e in edges if e["to"] == n}
+        starting[n] = [{"reagent": r, "name": scheme.label(r), "taken_g": taken_g(r, c["rows"].get(r["id"], {})),
+                        "key": material_key(r)}
+                       for r in b["reagents"] if r.get("role") == "reactant" and r["id"] not in linked]
+        sm = starting[n]
+        main_start[n] = (next((x for x in sm if x["reagent"].get("is_reference")), None)
+                         or next((x for x in sm if x["reagent"]["id"] == c.get("limiting_id")), None)
+                         or (sm[0] if sm else None)) if not parents[n] else None
+    # batches the first experiments start from; experiments of one batch sit together on the map
+    materials: dict[str, dict] = {}
+    for n in roots:
+        m = main_start[n]
+        if not m:
+            continue
+        mat = materials.setdefault(m["key"], {"key": m["key"], "reagent": m["reagent"], "name": m["name"],
+                                              "lot": m["reagent"].get("lot"), "supplier": m["reagent"].get("supplier"),
+                                              "uses": []})
+        mat["uses"].append({"experiment_id": n, "reagent_id": m["reagent"]["id"], "taken_g": m["taken_g"]})
+    first_of = {k: i for i, k in enumerate(materials)}
+    roots.sort(key=lambda n: first_of.get(main_start[n]["key"], len(first_of)) if main_start[n] else len(first_of))
+    for mat in materials.values():
+        used = [u["taken_g"] for u in mat["uses"] if u["taken_g"] is not None]
+        mat["used_g"] = sum(used) if used else None
+        mat["on_hand_g"] = (on_hand or {}).get(mat["key"])
+        mat["left_g"] = mat["on_hand_g"] - (mat["used_g"] or 0) if mat["on_hand_g"] is not None else None
+
     rowpos: dict[int, float] = {}
     next_row = [0]
 
@@ -105,9 +151,6 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
         pc = c["rows"].get(prod["id"], {}) if prod else {}
         isolated = pc.get("isolated_mass_g")
         used = [e["taken_g"] for e in edges if prod and e["product_id"] == prod["id"] and e["taken_g"] is not None]
-        linked = {e["reagent_id"] for e in edges if e["to"] == n}
-        starting = [{"reagent": r, "name": scheme.label(r), "taken_g": taken_g(r, c["rows"].get(r["id"], {}))}
-                    for r in b["reagents"] if r.get("role") == "reactant" and r["id"] not in linked]
         nodes.append({
             "id": n, "title": b["experiment"].get("title") or "Untitled", "date": b["experiment"].get("date"),
             "status": b["experiment"].get("status"), "col": depth[n], "row": rowpos[n],
@@ -115,7 +158,7 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
             "used_g": sum(used) if used else None,
             "remaining_g": isolated - sum(used) if isolated is not None and used else None,
             "parents": parents[n], "children": children[n], "main_parent": main_parent[n],
-            "stages": len(b["steps"]), "starting": starting,
+            "stages": len(b["steps"]), "starting": starting[n], "main_start": main_start[n],
         })
     node = {x["id"]: x for x in nodes}
     for x in nodes:  # overall yield along the main chain back to its start
@@ -131,7 +174,7 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
             for y in ys:
                 o *= y / 100
             x["overall_yield"] = o * 100
-    return {"nodes": nodes, "edges": edges, "order": order,
+    return {"nodes": nodes, "edges": edges, "order": order, "materials": list(materials.values()),
             "cols": max((x["col"] for x in nodes), default=-1) + 1, "rows": next_row[0]}
 
 
@@ -191,8 +234,9 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
     # compact rows and columns when showing part of the map; the first experiments of the route get a card with
     # their starting materials in front of them
     shown = {x["id"] for x in nodes}
-    firsts = [x for x in nodes if x["starting"] and not any(p in shown for p in x["parents"])]
-    shift = 1 if firsts else 0
+    batches = [dict(m, uses=[u for u in m["uses"] if u["experiment_id"] in shown]) for m in g.get("materials", [])]
+    batches = [m for m in batches if m["uses"]]
+    shift = 1 if batches else 0
     cols = sorted({x["col"] for x in nodes})
     rows = sorted({x["row"] for x in nodes})
     col_i = {c: i + shift for i, c in enumerate(cols)}
@@ -217,20 +261,25 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
         if e["taken_g"] is not None:
             lx, ly = x2 - 8, y2 - 6
             out.append(f'<text class="rm-label" x="{lx}" y="{ly}" text-anchor="end">{_fmt(e["taken_g"])} g</text>')
-    for x in firsts:
-        tx, py = pos[x["id"]]
-        px = tx - CARD_W - GAP_X
-        first = x["starting"][0]
-        r = first["reagent"]
-        x1, y1, x2 = px + CARD_W, py + CARD_H / 2, tx - 2
-        out.append(f'<path class="rm-edge" d="M{x1},{y1} L{x2},{y1}" marker-end="url(#rm-arrow)"/>')
-        taken = [s["taken_g"] for s in x["starting"] if s["taken_g"] is not None]
-        if len(x["starting"]) == 1 and taken:
-            out.append(f'<text class="rm-label" x="{x2 - 8}" y="{y1 - 6}" text-anchor="end">{_fmt(taken[0])} g</text>')
-        card = [f'<g class="rm-node rm-start" transform="translate({px},{py})">',
+    node_of = {x["id"]: x for x in nodes}
+    for m in batches:  # one card per batch, with an arrow and the amount taken to each experiment that uses it
+        ys = [pos[u["experiment_id"]][1] for u in m["uses"]]
+        px, py = PAD, (min(ys) + max(ys)) / 2
+        r = m["reagent"]
+        x1, y1 = px + CARD_W, py + CARD_H / 2
+        for u in m["uses"]:
+            tx, ty = pos[u["experiment_id"]]
+            x2, y2 = tx - 2, ty + CARD_H / 2
+            mx = (x1 + x2) / 2
+            out.append(f'<path class="rm-edge" d="M{x1},{y1} C{mx},{y1} {mx},{y2} {x2},{y2}" marker-end="url(#rm-arrow)"/>')
+            if u["taken_g"] is not None:
+                out.append(f'<text class="rm-label" x="{x2 - 8}" y="{y2 - 6}" text-anchor="end">{_fmt(u["taken_g"])} g</text>')
+        extra = node_of[m["uses"][0]["experiment_id"]]["starting"] if len(m["uses"]) == 1 else []
+        extra = [s for s in extra if s["reagent"]["id"] != m["uses"][0]["reagent_id"]]
+        title = "Starting material" + (f" · lot {m['lot']}" if m.get("lot") else "")
+        card = [f'<g class="rm-node rm-start" data-material="{html.escape(m["key"])}" transform="translate({px},{py})">',
                 f'<rect class="rm-card rm-start-card" width="{CARD_W}" height="{CARD_H}" rx="9"/>',
-                '<text class="rm-title rm-start-title" x="14" y="20">Starting material'
-                + ("s" if len(x["starting"]) > 1 else "") + "</text>",
+                f'<text class="rm-title rm-start-title" x="14" y="20">{_t(title, 31)}</text>',
                 f'<rect class="rm-paper" x="12" y="28" width="{CARD_W - 22}" height="84" rx="5"/>']
         src = img_src(r, 380, 170)
         if src:
@@ -240,12 +289,21 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
             card.append(f'<text class="rm-none" x="{CARD_W / 2 + 3}" y="74" text-anchor="middle">no structure</text>')
         no = (numbers or {}).get(r["id"])
         num = f'<tspan class="rm-no">{no}</tspan> ' if no else ""
-        card.append(f'<text class="rm-prod" x="14" y="130">{num}{_t(first["name"], 28 if no else 31)}</text>')
-        if first["taken_g"] is not None:
-            card.append(f'<text class="rm-stat" x="14" y="148">{_fmt(first["taken_g"])} g used</text>')
-        if len(x["starting"]) > 1:
+        card.append(f'<text class="rm-prod" x="14" y="130">{num}{_t(m["name"], 28 if no else 31)}</text>')
+        n_uses = len(m["uses"])
+        used = sum(u["taken_g"] for u in m["uses"] if u["taken_g"] is not None) if any(
+            u["taken_g"] is not None for u in m["uses"]) else None
+        stat = (f"{_fmt(used)} g used" if used is not None else "amount not set") + \
+            (f" in {n_uses} experiments" if n_uses > 1 else "")
+        card.append(f'<text class="rm-stat" x="14" y="148">{stat}</text>')
+        if m.get("on_hand_g") is not None:
+            left = m["on_hand_g"] - (used or 0)
+            cls = "rm-low" if left < 0 else "rm-left"
+            card.append(f'<text class="rm-sub" x="14" y="166">of {_fmt(m["on_hand_g"])} g · '
+                        f'<tspan class="{cls}">{_fmt(left)} g left</tspan></text>')
+        elif extra:
             more = ", ".join(f'{s["name"]}' + (f' ({_fmt(s["taken_g"])} g)' if s["taken_g"] is not None else "")
-                             for s in x["starting"][1:])
+                             for s in extra)
             card.append(f'<text class="rm-sub" x="14" y="166">+ {_t(more, 30)}</text>')
         card.append("</g>")
         out.append("".join(card))

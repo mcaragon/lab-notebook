@@ -167,9 +167,14 @@ class ProjectAdd(BaseModel):
     experiment_id: int
 
 
+class MaterialIn(BaseModel):
+    key: str
+    on_hand_g: Optional[float] = None    # None: not tracked
+
+
 class BranchIn(BaseModel):
     title: Optional[str] = None
-    mass_g: Optional[float] = None       # portion of the product to take (default: what is left)
+    mass_g: Optional[float] = None       # portion of the product (or starting material) to take
     project_id: Optional[int] = None     # project to add the new experiment to (default: the product's projects)
 
 
@@ -980,7 +985,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def project_parts(proj: dict) -> tuple[list[dict], list[dict], dict]:
         bundles = [b for b in (store.bundle(eid) for eid in proj["experiment_ids"]) if b]
         calcs = [compute(b) for b in bundles]
-        return bundles, calcs, projects.graph(bundles, calcs)
+        return bundles, calcs, projects.graph(bundles, calcs, store.material_amounts(proj["id"]))
 
     def project_detail(project_id: int) -> dict:
         proj = need_project(project_id)
@@ -1000,8 +1005,22 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
                            "number": numbers.get(r["product"]["id"]) if r["product"] else None} for r in rows],
             "final": [{"id": n, "title": next(x for x in g["nodes"] if x["id"] == n)["title"]} for n in final],
             "map_svg": projects.route_svg(g, img, numbers),
+            "materials": [{"key": m["key"], "name": m["name"], "lot": m["lot"], "supplier": m["supplier"],
+                           "reagent_id": m["reagent"]["id"], "number": numbers.get(m["reagent"]["id"]),
+                           "used_g": m["used_g"], "on_hand_g": m["on_hand_g"], "left_g": m["left_g"],
+                           "uses": [{**u, "title": next(x["title"] for x in g["nodes"] if x["id"] == u["experiment_id"])}
+                                    for u in m["uses"]]} for m in g["materials"]],
             "branches": any(len(x["children"]) > 1 for x in g["nodes"]),
         }
+
+    @app.put("/api/projects/{project_id}/materials")
+    def set_material(project_id: int, body: MaterialIn):
+        """How much of a starting-material batch is on hand (to show what is left)."""
+        need_project(project_id)
+        if body.on_hand_g is not None and body.on_hand_g < 0:
+            raise HTTPException(422, "Enter a positive amount.")
+        store.set_material_amount(project_id, body.key[:300], body.on_hand_g)
+        return project_detail(project_id)
 
     @app.get("/api/projects")
     def list_projects():
@@ -1065,10 +1084,15 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
     @app.post("/api/reagents/{rid}/branch", status_code=201)
     def branch(rid: int, body: BranchIn):
-        """New experiment that starts from a portion of this product, in the product's projects (or a new one)."""
+        """New experiment that starts from a portion of this product, in the product's projects (or a new one).
+
+        Branching from a starting material (a reactant that is not another experiment's product) starts a new first
+        step from the same batch: same compound, grade, supplier and lot, with its own amount."""
         prod = need("reagents", rid, "Reagent")
-        if prod["role"] != "product":
-            raise HTTPException(400, "Only a product can start a branch")
+        if prod["role"] not in ("product", "reactant"):
+            raise HTTPException(400, "Only a product or a starting material can start a branch")
+        if prod["role"] == "reactant":
+            return branch_from_material(prod, body)
         parent = need_exp(prod["experiment_id"])
         check_quota()
         title = body.title or f"From {scheme.label(prod)}"
@@ -1086,6 +1110,40 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         if not pids:
             pids = [store.create_project({"title": f"Route from {scheme.label(prod)}", "owner_id": uid()},
                                          [parent["id"]])]
+        for pid in pids:
+            if parent["id"] not in store.get_project(pid)["experiment_ids"]:
+                store.add_to_project(pid, parent["id"])
+            store.add_to_project(pid, eid)
+        out = detail(eid)
+        out["project_ids"] = pids
+        return out
+
+    def branch_from_material(sm: dict, body: BranchIn) -> dict:
+        parent = need_exp(sm["experiment_id"])
+        if sm.get("source_reagent_id"):
+            src = store.get("reagents", sm["source_reagent_id"])
+            if src and store.owner_of("reagents", src["id"]) == uid():  # a portion of a product: branch from that
+                return branch(src["id"], body)
+        check_quota()
+        data = {"title": body.title or f"From {scheme.label(sm)}", "owner_id": uid()}
+        if default_author():
+            data["author"] = default_author()
+        eid = store.create_experiment(data)
+        stage = store.list("steps", "experiment_id = ?", (eid,))[0]["id"]
+        keep = ["cid", "pubchem_url", *db.CHEM_FIELDS, "pictograms", "hazard_statements", "sources", "label",
+                "extra_hazards", "hazard_notes", "form", "purity", "concentration_m", "wt_percent", "solution_density",
+                "grade", "supplier", "lot", "notes"]
+        copy = {k: sm.get(k) for k in keep}
+        copy.update(step_id=stage, role="reactant", is_reference=True, scheme_pos=sm.get("scheme_pos") or "auto",
+                    basis="mass" if body.mass_g else None, basis_value=body.mass_g)
+        store.add_reagent(eid, copy)
+        if body.project_id:
+            need_project(body.project_id)
+            pids = [body.project_id]
+        else:
+            pids = [p["id"] for p in store.projects_of(parent["id"])]
+        if not pids:
+            pids = [store.create_project({"title": f"From {scheme.label(sm)}", "owner_id": uid()}, [parent["id"]])]
         for pid in pids:
             if parent["id"] not in store.get_project(pid)["experiment_ids"]:
                 store.add_to_project(pid, parent["id"])

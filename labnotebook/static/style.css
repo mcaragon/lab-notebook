@@ -704,3 +704,4 @@ details.menu .menu-list { position: absolute; right: 0; top: calc(100% + 4px); z
 .add-user > summary { list-style: none; display: inline-flex; }
 .invite-new { padding: 10px 12px; border-radius: 8px; background: var(--ok-soft); margin-bottom: 10px; display: grid; gap: 6px; }
 .admin-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; }
+.mat-sum .pct-in { white-space: nowrap; }

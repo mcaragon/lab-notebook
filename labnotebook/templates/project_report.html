@@ -22,6 +22,24 @@
 <div class="scheme-box">{{ scheme_html | safe }}</div>
 {% endif %}
 
+{% if materials %}
+<h2>Starting materials</h2>
+<table>
+  <thead><tr><th>Compound</th><th>Source</th><th>Used in</th><th class="num">Used</th><th class="num">On hand</th><th class="num">Left</th></tr></thead>
+  <tbody>
+  {% for m in materials %}
+  <tr><td>{% if m.number %}<b>{{ m.number }}</b> {% endif %}{{ m.name }}</td>
+    <td class="small">{{ [m.supplier, ('lot ' ~ m.lot) if m.lot else None] | select | join(', ') }}</td>
+    <td class="small">{% for u in m.uses %}{{ u.title }}{% if u.taken_g is not none %} ({{ u.taken_g | fmt }} g){% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+    <td class="num">{% if m.used_g is not none %}{{ m.used_g | fmt }} g{% endif %}</td>
+    <td class="num">{% if m.on_hand_g is not none %}{{ m.on_hand_g | fmt }} g{% endif %}</td>
+    <td class="num">{% if m.on_hand_g is not none %}{{ (m.on_hand_g - (m.used_g or 0)) | fmt }} g{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Experiments</h2>
 {% if summary %}
 <table>
   <thead><tr><th class="num">#</th><th>Experiment</th><th>From</th><th>Product</th><th class="num">Isolated</th><th class="num">Yield</th><th class="num">Left</th><th class="num">Overall</th></tr></thead>

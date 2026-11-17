@@ -20,6 +20,9 @@ as its chemical data source and runs as its own Docker container (built for Unra
   product). A project shows the route as a map that can branch (one intermediate used in several reactions, or in
   several small-scale trials) and converge (two intermediates combined). Each product shows how much was taken and
   how much is left; each experiment shows its yield and the overall yield along the longest chain leading to it.
+  Several first steps can start from the same **starting-material batch** (same compound and lot): the map draws
+  it once, with an arrow and the amount to each experiment, and a project can record how much is on hand to show
+  what is left. **⑂ Same batch** on a starting material starts another first step from it.
   Project reports cover the whole project or the route to one final product.
 - **Reaction scheme** drawn the organic chemistry way: numbered structures, reagents and catalysts above each arrow,
   solvent, atmosphere and conditions below, yields under the products. Long conditions switch to lettered arrows with

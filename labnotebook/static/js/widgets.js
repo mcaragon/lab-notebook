@@ -94,11 +94,16 @@ export function renderRoute(root) {
   const d = state.data;
   const rt = d.route || { sources: [], uses: [], products: [] };
   const prod = rt.products[0];
+  // starting materials bought or made outside the project: another first step can start from the same batch
+  const own = d.reagents.filter((r) => r.role === "reactant" && !r.source_reagent_id);
   root.innerHTML = `<div class="panel widget route-w">
     <div class="w-h"><h3>Route</h3>${d.projects.length ? "" : '<span class="tag">not in a project</span>'}</div>
     ${rt.sources.length ? `<div class="w-sub">Made from</div><ul class="mini links">${rt.sources.map((s) => `<li>
       <span>${esc(s.name)}${s.taken_g != null ? ` <span class="sub">${fmt(s.taken_g)} g</span>` : ""}</span>
       ${s.missing ? '<span class="sub">source deleted</span>' : `<a href="#/exp/${s.experiment_id}/results">${esc(s.experiment)}</a>`}</li>`).join("")}</ul>` : ""}
+    ${own.length ? `<div class="w-sub">Starting material${own.length > 1 ? "s" : ""}</div><ul class="mini links">${own.map((r) => `<li>
+      <span>${esc(labelOf(r))}${r.lot ? ` <span class="sub">lot ${esc(r.lot)}</span>` : ""}</span>
+      <button class="btn small" data-branch-sm="${r.id}" title="New experiment that starts from the same batch of ${esc(labelOf(r))}, with its own amount">⑂ Same batch</button></li>`).join("")}</ul>` : ""}
     ${prod ? `<div class="w-sub">Product</div>
       <div class="route-prod"><b>${esc(prod.name)}</b>
         <span class="sub">${prod.isolated_g != null ? `${fmt(prod.isolated_g)} g isolated` : "not isolated yet"}${prod.used_g != null ? ` · ${fmt(prod.used_g)} g used` : ""}</span>
@@ -119,6 +124,11 @@ export function renderRoute(root) {
     const out = await branchFrom(prod, prod.remaining_g ?? prod.isolated_g);
     if (out) location.hash = `#/exp/${out.experiment.id}/plan`;
   };
+  $$("[data-branch-sm]", root).forEach((btn) => (btn.onclick = async () => {
+    const r = d.reagents.find((x) => x.id === Number(btn.dataset.branchSm));
+    const out = await branchFrom({ id: r.id, name: labelOf(r) }, null);
+    if (out) location.hash = `#/exp/${out.experiment.id}/plan`;
+  }));
   const pick = $("#proj-pick", root);
   api("GET", "/api/projects").then(({ projects }) => {
     const mine = new Set(d.projects.map((q) => q.id));
