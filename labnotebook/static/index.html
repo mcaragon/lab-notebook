@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#0b0f1a">
+<meta name="theme-color" content="#f1f1f3">
+<script>try { var t = localStorage.getItem("ln.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <title>Lab Notebook</title>
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 <link rel="preload" href="/static/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -12,12 +13,14 @@
 </head>
 <body>
 <div class="shell">
-  <aside id="sidebar" class="sidebar" aria-label="Experiments and sequences"></aside>
+  <aside id="sidebar" class="sidebar" aria-label="Experiments and projects"></aside>
   <div class="scrim" id="scrim"></div>
   <div class="main-col">
     <header class="mobilebar">
       <button class="btn icon" id="menu-btn" aria-label="Open menu" aria-controls="sidebar">☰</button>
       <a href="#/" class="brand"><img src="/static/icon.svg" alt="" width="22" height="22"> Lab Notebook</a>
+      <span class="spacer"></span>
+      <button class="btn icon theme-quick" id="theme-quick" type="button" aria-label="Switch to night mode">☾</button>
     </header>
     <main id="app"></main>
   </div>

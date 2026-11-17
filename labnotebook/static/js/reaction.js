@@ -1,6 +1,7 @@
-/* Reaction section: live scheme plus the step editor (title, atmosphere, condition stages). */
+/* Reaction section: live scheme plus the conditions editor. One experiment is one reaction; a one-pot reaction can
+   have several numbered stages (1. Mg, THF, reflux; 2. PhCHO, 0 °C), each with its own reagents and conditions. */
 import { $, $$, esc, preserveFocus } from "./util.js";
-import { state, mutate, expId, multiStep } from "./state.js";
+import { state, mutate, expId, multiStage } from "./state.js";
 
 const TEMPS = ["−78", "0", "rt", "reflux"];
 const ATMOS = ["", "N₂", "Ar", "air", "H₂ (1 atm)", "O₂"];
@@ -20,8 +21,10 @@ function draw(root) {
     <div class="scheme-paper">${d.scheme_html.includes("<figure") || d.scheme_html.includes('class="arrow"')
       ? d.scheme_html : '<div class="empty">Add starting materials and products in Reagents to draw the scheme.</div>'}</div>
     <div class="steps">${d.steps.map((s, i) => stepCard(s, i)).join("")}</div>
-    <button class="btn" id="add-step">+ Add step</button>
-    <span class="hint">A new step starts from the previous step's product.</span>
+    <div class="row"><button class="btn" id="add-step">+ Add stage (one-pot)</button>
+    <span class="hint">For reagents added in sequence to the same flask, without isolating anything in between
+      (e.g. forming a Grignard reagent, then adding the aldehyde). A new reaction on an isolated product is a new
+      experiment: use <b>Branch</b> under Route.</span></div>
   </div>`;
   bind(root);
 }
@@ -30,10 +33,10 @@ function stepCard(s, i) {
   const n = state.data.steps.length;
   return `<div class="step-card" data-step="${s.id}">
     <div class="row step-title">
-      <span class="step-no">${n > 1 ? `Step ${i + 1}` : "Conditions"}</span>
-      ${n > 1 ? `<input class="grow" placeholder="Step name (e.g. Reduction)" data-sfield="title" data-key="st-${s.id}-title" value="${esc(s.title || "")}">` : ""}
+      <span class="step-no">${n > 1 ? `<span class="stage-no">${i + 1}</span>Stage ${i + 1}` : "Conditions"}</span>
+      ${n > 1 ? `<input class="grow" placeholder="Stage name (optional, e.g. Grignard formation)" data-sfield="title" data-key="st-${s.id}-title" value="${esc(s.title || "")}">` : ""}
       <label class="inline small">Atmosphere <input list="atmos" class="w-sm" data-sfield="atmosphere" data-key="st-${s.id}-atm" value="${esc(s.atmosphere || "")}"></label>
-      ${n > 1 ? `<button class="btn icon danger" data-del-step="${s.id}" title="Delete step ${i + 1}" aria-label="Delete step">✕</button>` : ""}
+      ${n > 1 ? `<button class="btn icon danger" data-del-step="${s.id}" title="Delete stage ${i + 1}" aria-label="Delete stage">✕</button>` : ""}
     </div>
     <div class="stages">
       ${s.conditions.map((k, j) => `<div class="stage" data-cond="${k.id}">
@@ -41,13 +44,13 @@ function stepCard(s, i) {
         <input class="w-sm" placeholder="Temp (°C, rt)" data-cfield="temperature" data-key="c-${k.id}-t" value="${esc(k.temperature || "")}" list="temps" aria-label="Temperature">
         <input class="w-sm" placeholder="Time (e.g. 2 h)" data-cfield="duration" data-key="c-${k.id}-d" value="${esc(k.duration || "")}" aria-label="Time">
         <input class="grow" placeholder="Note (e.g. dropwise addition)" data-cfield="note" data-key="c-${k.id}-n" value="${esc(k.note || "")}" aria-label="Note">
-        <button class="btn icon" data-del-cond="${k.id}" title="Remove stage" aria-label="Remove stage">✕</button>
+        <button class="btn icon" data-del-cond="${k.id}" title="Remove" aria-label="Remove condition">✕</button>
       </div>`).join("")}
-      <div class="row quick-temps"><span class="hint">Add stage:</span>
+      <div class="row quick-temps"><span class="hint">${s.conditions.length ? "Then:" : "Add condition:"}</span>
         ${TEMPS.map((t) => `<button class="chip" data-add-cond="${s.id}" data-temp="${t}">${t === "rt" || t === "reflux" ? t : t + " °C"}</button>`).join("")}
         <button class="chip" data-add-cond="${s.id}" data-temp="">other…</button></div>
     </div>
-    ${multiStep() ? `<input class="w-full step-notes" placeholder="Notes for this step (shown in the report)" data-sfield="notes" data-key="st-${s.id}-notes" value="${esc(s.notes || "")}">` : ""}
+    ${multiStage() ? `<input class="w-full step-notes" placeholder="Notes for this stage" data-sfield="notes" data-key="st-${s.id}-notes" value="${esc(s.notes || "")}">` : ""}
   </div>`;
 }
 
@@ -77,6 +80,6 @@ function bind(root) {
     last?.querySelector(b.dataset.temp ? "[data-cfield=duration]" : "[data-cfield=temperature]")?.focus();
   }));
   $$("[data-del-step]", root).forEach((b) => (b.onclick = () => {
-    if (confirm("Delete this step with its reagents and conditions?")) mutate("DELETE", `/api/steps/${b.dataset.delStep}`);
+    if (confirm("Delete this stage with its reagents and conditions?")) mutate("DELETE", `/api/steps/${b.dataset.delStep}`);
   }));
 }

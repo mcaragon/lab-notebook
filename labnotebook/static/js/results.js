@@ -1,6 +1,6 @@
 /* Results (yields and write-up), references (rows) and report export. */
 import { $, $$, esc, fmt, preserveFocus } from "./util.js";
-import { state, mutate, expId, multiStep } from "./state.js";
+import { state, mutate, expId } from "./state.js";
 import { sectionField, bindSections } from "./expfields.js";
 
 export function renderResults(root) {
@@ -19,17 +19,17 @@ export function renderResults(root) {
 
 function updateYields(root) {
   const d = state.data;
-  const rows = d.steps.flatMap((s, i) => d.reagents.filter((r) => r.step_id === s.id && r.role === "product").map((r) => ({ r, i })));
+  const rows = d.reagents.filter((r) => r.role === "product").map((r) => ({ r }));
   const box = $("#yields", root);
   if (!rows.length) {
     box.innerHTML = `<p class="empty">Add the product under Reagents → Products to calculate yields.</p>`;
     return;
   }
-  box.innerHTML = `<div class="yield-cards">${rows.map(({ r, i }) => {
+  box.innerHTML = `<div class="yield-cards">${rows.map(({ r }) => {
     const c = r.calc || {};
     const ref = d.refs.findIndex((x) => x.id === r.expected_ref_id);
     return `<div class="ycard">
-      <div class="ytitle">${multiStep() ? `<span class="badge">step ${i + 1}</span> ` : ""}<b>${esc(r.name)}</b></div>
+      <div class="ytitle"><b>${esc(r.name)}</b></div>
       <dl>
         <dt>Theoretical</dt><dd>${c.theoretical_mass_g != null ? `${fmt(c.theoretical_mass_g)} g <span class="sub">${fmt(c.theoretical_mmol)} mmol</span>` : "–"}</dd>
         <dt>Expected</dt><dd>${c.expected_yield_pct != null ? `${c.expected_yield_pct}%${ref >= 0 ? ` [${ref + 1}]` : ""}${c.expected_mass_g != null ? ` <span class="sub">${fmt(c.expected_mass_g)} g</span>` : ""}` : "–"}</dd>
@@ -38,7 +38,6 @@ function updateYields(root) {
         <dt>Actual yield</dt><dd class="yield">${c.percent_yield != null ? c.percent_yield.toFixed(1) + "%" : "–"}</dd>
       </dl></div>`;
   }).join("")}</div>
-  ${d.stoich.overall_yield != null ? `<p class="overall"><b>Overall yield:</b> ${d.stoich.overall_yield.toFixed(1)}% over ${d.steps.length} steps</p>` : ""}
   <p class="hint">Enter masses in Reagents → Products, or log “Product mass” while working. The theoretical yield uses the actual amounts of the starting materials.</p>`;
 }
 

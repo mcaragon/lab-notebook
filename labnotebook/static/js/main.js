@@ -1,5 +1,5 @@
 /* Lab Notebook frontend: vanilla JS modules, no build step.
-   Routes: #/ (dashboard), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/seq/<id>. */
+   Routes: #/ (dashboard), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/project/<id>. */
 import { $, $$, api, esc, toast } from "./util.js";
 import { state, setData, expId, addRenderer, refresh, sigOf } from "./state.js";
 import { flushExp, saveExp, sectionField, bindSections, hasPendingExp } from "./expfields.js";
@@ -8,9 +8,10 @@ import { renderReagents } from "./reagents.js";
 import { renderProcedure, renderChecklist } from "./procedure.js";
 import { renderBench, startTicker } from "./bench.js";
 import { renderResults, renderRefs, renderReport } from "./results.js";
-import { renderSequence } from "./sequence.js";
+import { renderProject } from "./project.js";
 import { initSidebar, refreshSidebar, patchSidebar, markActive } from "./sidebar.js";
-import { renderGlance, renderHazards } from "./widgets.js";
+import { renderGlance, renderHazards, renderRoute } from "./widgets.js";
+import { initTheme } from "./theme.js";
 import { initResizers, resizer } from "./resize.js";
 
 const app = $("#app");
@@ -67,7 +68,7 @@ async function route() {
     state.data = null;
     state.renderers = [];
     document.body.classList.remove("running");
-    if (parts[0] === "seq" && parts[1]) renderSequence(app, Number(parts[1]));
+    if ((parts[0] === "project" || parts[0] === "seq") && parts[1]) renderProject(app, Number(parts[1]));
     else renderHome();
   }
 }
@@ -76,7 +77,7 @@ async function route() {
 async function renderHome() {
   document.title = "Lab Notebook";
   app.innerHTML = `<div class="home"><div class="page-head"><div><h1>Lab Notebook</h1><p class="hint">Plan, run and write up organic chemistry experiments.</p></div>
-    <span class="spacer"></span><button class="btn" id="h-new-seq">⇢ New sequence</button><button class="btn primary" id="h-new-exp">＋ New experiment</button></div>
+    <span class="spacer"></span><button class="btn" id="h-new-seq">⇢ New project</button><button class="btn primary" id="h-new-exp">＋ New experiment</button></div>
     <div id="home-body" class="empty">Loading…</div></div>`;
   $("#h-new-exp").onclick = async () => {
     try {
@@ -87,36 +88,36 @@ async function renderHome() {
   };
   $("#h-new-seq").onclick = async () => {
     try {
-      const d = await api("POST", "/api/sequences", { title: "New sequence" });
+      const d = await api("POST", "/api/projects", { title: "New project" });
       refreshSidebar();
-      location.hash = `#/seq/${d.sequence.id}`;
+      location.hash = `#/project/${d.project.id}`;
     } catch (e) { toast(e.message, true); }
   };
   try {
-    const [{ experiments }, { sequences }] = await Promise.all([api("GET", "/api/experiments"), api("GET", "/api/sequences")]);
+    const [{ experiments }, { projects }] = await Promise.all([api("GET", "/api/experiments"), api("GET", "/api/projects")]);
     const by = (s) => experiments.filter((e) => e.status === s);
     const card = (e) => `<a class="exp-card s-${esc(e.status)}" href="#/exp/${e.id}/${e.status === "in_progress" ? "bench" : "plan"}">
       <span class="status ${esc(e.status)}">${esc(STATUS_LABELS[e.status] || e.status)}</span>
       <b>${esc(e.title)}</b>
       <span class="sub">${[e.course, e.date].filter(Boolean).map(esc).join(" · ")}</span>
-      <span class="ec-foot"><span>${e.n_steps > 1 ? `${e.n_steps} steps` : "1 step"}</span><span>${e.n_reagents} chemicals</span></span></a>`;
+      <span class="ec-foot"><span>${e.product ? "→ " + esc(e.product) : "no product yet"}</span><span>${e.n_reagents} chemicals</span></span></a>`;
     $("#home-body").className = "";
     $("#home-body").innerHTML = `
       <div class="stat-row">
         <div class="stat s-in_progress"><span class="k-l">In progress</span><b>${by("in_progress").length}</b></div>
         <div class="stat s-planned"><span class="k-l">Planned</span><b>${by("planned").length}</b></div>
         <div class="stat s-completed"><span class="k-l">Completed</span><b>${by("completed").length}</b></div>
-        <div class="stat s-seq"><span class="k-l">Sequences</span><b>${sequences.length}</b></div>
+        <div class="stat s-seq"><span class="k-l">Projects</span><b>${projects.length}</b></div>
       </div>
       ${by("in_progress").length ? `<h2 class="home-h">Running now</h2><div class="card-grid">${by("in_progress").map(card).join("")}</div>` : ""}
       <h2 class="home-h">All experiments</h2>
       ${experiments.length ? `<div class="card-grid">${experiments.map(card).join("")}</div>` : '<p class="empty">No experiments yet. Create one to start planning.</p>'}
-      <h2 class="home-h">Sequences</h2>
-      ${sequences.length ? `<div class="card-grid">${sequences.map((q) => `<a class="exp-card s-seq" href="#/seq/${q.id}">
-        <span class="status seq">Sequence</span><b>${esc(q.title)}</b>
-        <span class="sub">${q.experiments.map((e) => esc(e.title)).join(" → ") || "no experiments yet"}</span>
+      <h2 class="home-h">Projects</h2>
+      ${projects.length ? `<div class="card-grid">${projects.map((q) => `<a class="exp-card s-seq" href="#/project/${q.id}">
+        <span class="status seq">Project</span><b>${esc(q.title)}</b>
+        <span class="sub">${q.experiments.slice(0, 4).map((e) => esc(e.title)).join(" · ") || "no experiments yet"}${q.experiments.length > 4 ? " …" : ""}</span>
         <span class="ec-foot"><span>${q.experiments.length} experiment${q.experiments.length === 1 ? "" : "s"}</span></span></a>`).join("")}</div>`
-        : '<p class="empty">A sequence links separate experiments (e.g. one per step, on different days) into one route with an overall scheme, yield and report.</p>'}`;
+        : '<p class="empty">A project links experiments into a route: each experiment starts from a portion of another one\'s product. Routes can branch (one intermediate, several reactions) and converge.</p>'}`;
   } catch (e) {
     $("#home-body").textContent = "Could not load: " + e.message;
   }
@@ -137,7 +138,7 @@ function renderShell(tab) {
     <div class="tab-body" data-tab="plan"><div class="layout-2">
       <div class="col-main"><section id="sec-reaction"></section><section id="sec-reagents"></section></div>
       ${resizer("--rail", "next", 260, 720, "Resize the side panel")}
-      <div class="col-side"><section id="sec-glance"></section><section id="sec-hazards"></section><section id="sec-overview"></section></div>
+      <div class="col-side"><section id="sec-glance"></section><section id="sec-route"></section><section id="sec-hazards"></section><section id="sec-overview"></section></div>
     </div></div>
     <div class="tab-body" data-tab="bench"><div class="layout-bench">
       <div class="col-left"><section id="sec-checklist"></section></div>
@@ -172,14 +173,16 @@ function renderShell(tab) {
     d().experiment.started_at, d().experiment.ended_at), () => renderGlance($("#sec-glance")));
   addRenderer("plan", () => sigOf(d().reagents.map((r) => [r.id, r.name, r.label, r.pictograms, r.signal_word, r.hazard_statements,
     r.extra_hazards, r.flash_point])), () => renderHazards($("#sec-hazards")));
-  addRenderer("plan", () => sigOf(d().sequences), () => renderOverview($("#sec-overview")));
+  addRenderer("plan", () => sigOf(d().route, d().projects, d().reagents.filter((r) => r.role === "product").map((r) => [r.id, r.name])),
+    () => renderRoute($("#sec-route")));
+  addRenderer("plan", () => sigOf(expId()), () => renderOverview($("#sec-overview")));
   addRenderer("bench", () => sigOf(d().reagents.map((r) => [r.id, r.name, r.label, r.role, r.step_id, r.calc, r.actual_value,
     r.actual_basis, r.basis, r.actual_mass_g, r.crude_mass_g, r.form]), d().steps.map((x) => [x.id, x.title])),
     () => renderChecklist($("#sec-checklist")));
   addRenderer("bench", () => sigOf(d().procedure, d().entries, d().steps.map((x) => x.id),
     d().reagents.map((r) => [r.id, r.name, r.label, r.role, r.form, r.mp])), () => renderProcedure($("#sec-procedure")));
   addRenderer("results", () => sigOf(d().reagents.filter((r) => r.role === "product").map((r) => [r.id, r.name, r.calc, r.expected_ref_id]),
-    d().stoich.overall_yield, d().refs.map((x) => x.id), d().steps.length), () => renderResults($("#sec-results")));
+    d().stoich.yield, d().refs.map((x) => x.id)), () => renderResults($("#sec-results")));
   addRenderer("results", () => sigOf(d().refs), () => renderRefs($("#sec-refs")));
   addRenderer("report", () => sigOf(expId()), () => renderReport($("#sec-report")));
   showTab(tab || (exp.started_at && !exp.ended_at ? "bench" : "plan"));
@@ -209,11 +212,6 @@ function renderOverview(root) {
     </div>
     <div style="height:10px"></div>
     ${sectionField("objective", "Objective", "", 3)}
-    <div class="w-sub">Sequence</div>
-    <div class="row seq-row">
-      ${(state.data.sequences || []).map((q) => `<a class="chip" href="#/seq/${q.id}">⇢ ${esc(q.title)}</a>`).join("")}
-      <select id="seq-pick" aria-label="Add to a sequence"><option value="">Add to sequence…</option><option value="new">New sequence…</option></select>
-    </div>
     <div class="row" style="margin-top:14px">
       <button class="btn small" id="dup">Duplicate as new plan</button><span class="spacer"></span>
       <button class="btn small danger" id="del">Delete</button>
@@ -221,28 +219,6 @@ function renderOverview(root) {
   [["f-date", "date"], ["f-author", "author"], ["f-course", "course"]].forEach(([id, k]) =>
     $("#" + id, root).addEventListener("input", (e) => saveExp({ [k]: e.target.value })));
   $("#f-status", root).addEventListener("change", (e) => { saveExp({ status: e.target.value }, true); patchSidebar(exp.id, { status: e.target.value }); });
-  const pick = $("#seq-pick", root);
-  api("GET", "/api/sequences").then(({ sequences }) => {
-    const mine = new Set((state.data.sequences || []).map((q) => q.id));
-    pick.insertAdjacentHTML("beforeend", sequences.filter((q) => !mine.has(q.id))
-      .map((q) => `<option value="${q.id}">${esc(q.title)}</option>`).join(""));
-  }).catch(() => {});
-  pick.onchange = async () => {
-    try {
-      if (pick.value === "new") {
-        const title = prompt("Name of the new sequence:", exp.title);
-        if (!title) { pick.value = ""; return; }
-        const d = await api("POST", "/api/sequences", { title, experiment_ids: [exp.id] });
-        refreshSidebar();
-        location.hash = `#/seq/${d.sequence.id}`;
-      } else if (pick.value) {
-        const d = await api("POST", `/api/sequences/${pick.value}/experiments`, { experiment_id: exp.id });
-        state.data = null;
-        refreshSidebar();
-        location.hash = `#/seq/${d.sequence.id}`;
-      }
-    } catch (e) { toast(e.message, true); }
-  };
   bindSections(root);
   $("#dup", root).onclick = async () => {
     try {
@@ -250,7 +226,7 @@ function renderOverview(root) {
       state.data = null;
       refreshSidebar();
       location.hash = `#/exp/${d.experiment.id}/plan`;
-      toast("Copied the plan: steps, reagents with planned amounts, procedure and references.");
+      toast("Copied the plan: stages, reagents with planned amounts, procedure and references.");
     } catch (e) { toast(e.message, true); }
   };
   $("#del", root).onclick = async () => {
@@ -284,6 +260,7 @@ document.addEventListener("click", (e) => {
     app.innerHTML = `<div class="panel">Could not reach the Lab Notebook server: ${esc(e.message)}</div>`;
     return;
   }
+  initTheme();
   initSidebar();
   initResizers();
   checkHealth();

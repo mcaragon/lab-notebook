@@ -1,6 +1,8 @@
-/* Side panels of the Plan tab: "At a glance" and the experiment-wide hazard summary. */
-import { esc, fmt, fmtDur, ghsImg, GHS_NAMES, hCode, hText, nfpaDiamond } from "./util.js";
-import { state, labelOf, multiStep, nowServer } from "./state.js";
+/* Side panels of the Plan tab: "At a glance", the experiment-wide hazard summary and the route (where the starting
+   materials came from, where the product went, branching, projects). */
+import { $, $$, api, esc, fmt, fmtDur, ghsImg, GHS_NAMES, hCode, hText, nfpaDiamond, toast } from "./util.js";
+import { state, labelOf, multiStage, nowServer } from "./state.js";
+import { refreshSidebar } from "./sidebar.js";
 
 const ROLE = { reactant: "Starting material", reagent: "Reagent", catalyst: "Catalyst", solvent: "Solvent", workup: "Workup", product: "Product" };
 
@@ -33,7 +35,7 @@ export function renderGlance(root) {
         <span class="k-s">${exp.started_at ? new Date(exp.started_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "not started"}</span></div>
     </div>
     <div class="meter" title="${measured} of ${inputs.length} chemicals measured"><span style="width:${pct}%"></span></div>
-    <div class="k-s">${measured} of ${inputs.length} chemicals measured${multiStep() ? ` · ${d.steps.length} steps` : ""}</div>
+    <div class="k-s">${measured} of ${inputs.length} chemicals measured${multiStage() ? ` · one-pot, ${d.steps.length} stages` : ""}</div>
     <div class="role-tags">${Object.entries(byRole).map(([k, n]) => `<span class="tag role-${k}">${n} ${esc(ROLE[k] || k)}${n > 1 && k !== "workup" ? "s" : ""}</span>`).join("")}</div>
   </div>`;
 }
@@ -69,4 +71,71 @@ export function renderHazards(root) {
     ${severe.length ? `<div class="w-sub">Severe hazards</div><ul class="mini codes">${severe.slice(0, 8).map(([k, t]) =>
       `<li title="${esc(t)}"><b>${esc(k)}</b><span>${esc(t.replace(/^[^:]*:\s*/, ""))}</span></li>`).join("")}</ul>` : ""}
   </div>`;
+}
+
+// ------------------------------------------------------------------------------------------- route
+const STATUS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
+
+/** Ask for the portion of a product to use and start a new experiment from it. */
+export async function branchFrom(product, remaining) {
+  const def = remaining != null && remaining > 0 ? String(+remaining.toFixed(4)) : "";
+  const v = prompt(`Branch from ${product.name}: how much do you take (g)?\nLeave empty to decide later.`, def);
+  if (v === null) return null;
+  const mass = v.trim() === "" ? null : Number(v.replace(",", "."));
+  if (mass !== null && !(mass > 0)) { toast("Enter a mass in g.", true); return null; }
+  try {
+    const d = await api("POST", `/api/reagents/${product.id}/branch`, mass === null ? {} : { mass_g: mass });
+    refreshSidebar();
+    return d;
+  } catch (e) { toast(e.message, true); return null; }
+}
+
+export function renderRoute(root) {
+  const d = state.data;
+  const rt = d.route || { sources: [], uses: [], products: [] };
+  const prod = rt.products[0];
+  root.innerHTML = `<div class="panel widget route-w">
+    <div class="w-h"><h3>Route</h3>${d.projects.length ? "" : '<span class="tag">not in a project</span>'}</div>
+    ${rt.sources.length ? `<div class="w-sub">Made from</div><ul class="mini links">${rt.sources.map((s) => `<li>
+      <span>${esc(s.name)}${s.taken_g != null ? ` <span class="sub">${fmt(s.taken_g)} g</span>` : ""}</span>
+      ${s.missing ? '<span class="sub">source deleted</span>' : `<a href="#/exp/${s.experiment_id}/results">${esc(s.experiment)}</a>`}</li>`).join("")}</ul>` : ""}
+    ${prod ? `<div class="w-sub">Product</div>
+      <div class="route-prod"><b>${esc(prod.name)}</b>
+        <span class="sub">${prod.isolated_g != null ? `${fmt(prod.isolated_g)} g isolated` : "not isolated yet"}${prod.used_g != null ? ` · ${fmt(prod.used_g)} g used` : ""}</span>
+        ${prod.remaining_g != null && prod.used_g != null ? `<span class="left ${prod.remaining_g < 0 ? "neg" : ""}">${fmt(prod.remaining_g)} g left</span>` : ""}</div>
+      ${rt.uses.length ? `<ul class="mini links">${rt.uses.map((u) => `<li><a href="#/exp/${u.experiment_id}/plan">${esc(u.experiment)}</a>
+        <span class="sub">${u.taken_g != null ? `${fmt(u.taken_g)} g · ` : ""}${esc(STATUS[u.status] || u.status)}</span></li>`).join("")}</ul>` : ""}
+      <button class="btn small primary" id="branch-btn" title="New experiment that starts from a portion of this product">⑂ Branch from this product</button>`
+    : `<p class="hint">Add the product under Reagents to continue the route from it.</p>`}
+    <div class="w-sub">Projects</div>
+    <div class="row seq-row">
+      ${d.projects.map((q) => `<a class="chip" href="#/project/${q.id}">⇢ ${esc(q.title)}</a>`).join("")}
+      <select id="proj-pick" aria-label="Add to a project"><option value="">Add to project…</option><option value="new">New project…</option></select>
+    </div>
+    <p class="hint">To link an experiment done earlier, add its product as a starting material: type its name under Reagents → Starting materials.</p>
+  </div>`;
+  const b = $("#branch-btn", root);
+  if (b) b.onclick = async () => {
+    const out = await branchFrom(prod, prod.remaining_g ?? prod.isolated_g);
+    if (out) location.hash = `#/exp/${out.experiment.id}/plan`;
+  };
+  const pick = $("#proj-pick", root);
+  api("GET", "/api/projects").then(({ projects }) => {
+    const mine = new Set(d.projects.map((q) => q.id));
+    pick.insertAdjacentHTML("beforeend", projects.filter((q) => !mine.has(q.id))
+      .map((q) => `<option value="${q.id}">${esc(q.title)}</option>`).join(""));
+  }).catch(() => {});
+  pick.onchange = async () => {
+    try {
+      let id;
+      if (pick.value === "new") {
+        const title = prompt("Name of the new project:", d.experiment.title);
+        if (!title) { pick.value = ""; return; }
+        id = (await api("POST", "/api/projects", { title, experiment_ids: [d.experiment.id] })).project.id;
+      } else if (pick.value) {
+        id = (await api("POST", `/api/projects/${pick.value}/experiments`, { experiment_id: d.experiment.id })).project.id;
+      }
+      if (id) { state.data = null; refreshSidebar(); location.hash = `#/project/${id}`; }
+    } catch (e) { toast(e.message, true); }
+  };
 }
