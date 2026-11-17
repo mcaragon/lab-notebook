@@ -130,6 +130,7 @@ Back up `/mnt/user/appdata/lab-notebook` (a single SQLite file, `notebook.sqlite
 - **Friends:** in **Admin**, create an **invite link** (it works once and expires) or an account. Demo accounts can
   expire and have a limit on experiments; **Reset notebook** clears one.
 - Every account sees only its own experiments and projects; the server answers 404 for anyone else's.
+- Forgot a password with no other admin around: `docker exec -it lab-notebook /entrypoint.sh set-password USER`.
 - Passwords are hashed with scrypt; sessions are HttpOnly, SameSite=Lax cookies (Secure over HTTPS); changes need
   an `X-Requested-With` header (no cross-site requests); failed sign-ins are throttled per user name and address;
   Markdown in reports cannot carry HTML or script links.

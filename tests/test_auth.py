@@ -158,3 +158,16 @@ def test_markdown_in_reports_is_safe(client):
                                                 "[click](javascript:alert(1))"}).json()["experiment"]["id"]
     html = client.get(f"/api/experiments/{eid}/report.html").text
     assert "<script>alert" not in html and "javascript:" not in html and "&lt;script&gt;" in html
+
+
+def test_set_password_command(tmp_path, monkeypatch, capsys):
+    from labnotebook import __main__ as cli, auth, db
+    monkeypatch.setenv("NOTEBOOK_DATA_DIR", str(tmp_path))
+    a = auth.Auth(db.Store(tmp_path / "notebook.sqlite"))
+    uid = a.create_user("boss", PW, role="admin")
+    a.update_user(uid, {"active": False})
+    monkeypatch.setattr("getpass.getpass", lambda prompt="": "a brand new password")
+    cli.main(["set-password", "boss"])
+    u = a.find_user("boss")
+    assert auth.verify_password("a brand new password", u["password_hash"]) and u["active"]
+    assert "Password set" in capsys.readouterr().out
