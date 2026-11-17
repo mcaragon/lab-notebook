@@ -418,8 +418,7 @@ def build_project_context(proj: dict, bundles: list[dict], calcs: list[dict], g:
         "map_svg": projects.route_svg(g, img, numbers, link=False, only=set(ids), inline_css=True)
         if len(ids) > 1 else "",
         "scheme": sch, "scheme_html": _scheme_html(sch, img) if sch and not sch["empty"] else "",
-        "overall_yield": node[leaf]["overall_yield"] if leaf is not None else
-        (node[chain[-1]]["overall_yield"] if chain else None),
+        "overall_yield": node[chain[-1]]["overall_yield"] if len(chain) > 1 else None,
         "lls": len(chain), "lab_name": getattr(settings, "lab_name", "") if settings else "",
         "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M"), "ghs": images[1], "ghs_names": GHS_NAMES,
     }
@@ -604,7 +603,7 @@ def _route_table(summary: list[dict]) -> list[str]:
         body.append([r["n"], r["title"], frm, prod, f"{fmt(r['isolated_g'])} g" if r["isolated_g"] is not None else "",
                      f"{r['yield']:.1f}%" if r["yield"] is not None else "",
                      f"{fmt(r['remaining_g'])} g" if r["remaining_g"] is not None else "",
-                     f"{r['overall_yield']:.1f}% ({r['lls']} steps)" if r["overall_yield"] is not None else ""])
+                     f"{r['overall_yield']:.1f}% ({r['lls']} step{'s' if r['lls'] != 1 else ''})" if r["overall_yield"] is not None else ""])
     return _table(["#", "Experiment", "From", "Product", "Isolated", "Yield", "Left", "Overall"],
                   ["r", "l", "l", "l", "r", "r", "r", "r"], body)
 

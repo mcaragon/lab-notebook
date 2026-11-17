@@ -652,3 +652,5 @@ body.exp-view .pl.wide .phase-h { background: var(--pane); }
 .rep-grid { display: grid; gap: 8px; }
 .rep-label { min-width: 200px; font-weight: 600; }
 .legend-dots .dot, .proj-sum .dot { display: inline-block; }
+.route-map .rm-start-card { fill: var(--pane-2); stroke-dasharray: 4 3; }
+.route-map .rm-start-title { fill: var(--muted); }

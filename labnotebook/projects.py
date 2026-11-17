@@ -36,7 +36,8 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
     """Nodes (experiments) and edges (material links) of a project, with layout and yields.
 
     Each node: ``id, title, date, status, col, row, product, number, yield, isolated_g, used_g, remaining_g,
-    overall_yield, lls, parents, children, main_parent``. Each edge: ``from, to, product_id, reagent_id, taken_g,
+    overall_yield, lls, parents, children, main_parent, starting``; ``starting`` lists the starting materials that
+    do not come from another experiment of the project (``{reagent, name, taken_g}``). Each edge: ``from, to, product_id, reagent_id, taken_g,
     main`` (main: part of the layout tree).
     """
     order = [b["experiment"]["id"] for b in bundles]
@@ -104,6 +105,9 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
         pc = c["rows"].get(prod["id"], {}) if prod else {}
         isolated = pc.get("isolated_mass_g")
         used = [e["taken_g"] for e in edges if prod and e["product_id"] == prod["id"] and e["taken_g"] is not None]
+        linked = {e["reagent_id"] for e in edges if e["to"] == n}
+        starting = [{"reagent": r, "name": scheme.label(r), "taken_g": taken_g(r, c["rows"].get(r["id"], {}))}
+                    for r in b["reagents"] if r.get("role") == "reactant" and r["id"] not in linked]
         nodes.append({
             "id": n, "title": b["experiment"].get("title") or "Untitled", "date": b["experiment"].get("date"),
             "status": b["experiment"].get("status"), "col": depth[n], "row": rowpos[n],
@@ -111,7 +115,7 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
             "used_g": sum(used) if used else None,
             "remaining_g": isolated - sum(used) if isolated is not None and used else None,
             "parents": parents[n], "children": children[n], "main_parent": main_parent[n],
-            "stages": len(b["steps"]),
+            "stages": len(b["steps"]), "starting": starting,
         })
     node = {x["id"]: x for x in nodes}
     for x in nodes:  # overall yield along the main chain back to its start
@@ -121,8 +125,8 @@ def graph(bundles: list[dict], calcs: list[dict]) -> dict:
             cur = main_parent[cur]
         x["lls"] = len(chain)
         ys = [node[k]["yield"] for k in chain]
-        x["overall_yield"] = None
-        if len(chain) > 1 and all(y is not None for y in ys):
+        x["overall_yield"] = None  # a first experiment's overall yield is its own yield
+        if all(y is not None for y in ys):
             o = 1.0
             for y in ys:
                 o *= y / 100
@@ -184,13 +188,17 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
     nodes = [x for x in g["nodes"] if only is None or x["id"] in only]
     if not nodes:
         return ""
-    # compact rows and columns when showing part of the map
+    # compact rows and columns when showing part of the map; the first experiments of the route get a card with
+    # their starting materials in front of them
+    shown = {x["id"] for x in nodes}
+    firsts = [x for x in nodes if x["starting"] and not any(p in shown for p in x["parents"])]
+    shift = 1 if firsts else 0
     cols = sorted({x["col"] for x in nodes})
     rows = sorted({x["row"] for x in nodes})
-    col_i = {c: i for i, c in enumerate(cols)}
+    col_i = {c: i + shift for i, c in enumerate(cols)}
     row_i = {r: i for i, r in enumerate(rows)}
     pos = {x["id"]: (PAD + col_i[x["col"]] * (CARD_W + GAP_X), PAD + row_i[x["row"]] * (CARD_H + GAP_Y)) for x in nodes}
-    width = PAD * 2 + len(cols) * CARD_W + (len(cols) - 1) * GAP_X
+    width = PAD * 2 + (len(cols) + shift) * CARD_W + (len(cols) + shift - 1) * GAP_X
     height = PAD * 2 + len(rows) * CARD_H + (len(rows) - 1) * GAP_Y
     out = [f'<svg class="route-map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
            f'width="{width}" height="{height}" role="img" aria-label="Route map">',
@@ -209,6 +217,38 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
         if e["taken_g"] is not None:
             lx, ly = x2 - 8, y2 - 6
             out.append(f'<text class="rm-label" x="{lx}" y="{ly}" text-anchor="end">{_fmt(e["taken_g"])} g</text>')
+    for x in firsts:
+        tx, py = pos[x["id"]]
+        px = tx - CARD_W - GAP_X
+        first = x["starting"][0]
+        r = first["reagent"]
+        x1, y1, x2 = px + CARD_W, py + CARD_H / 2, tx - 2
+        out.append(f'<path class="rm-edge" d="M{x1},{y1} L{x2},{y1}" marker-end="url(#rm-arrow)"/>')
+        taken = [s["taken_g"] for s in x["starting"] if s["taken_g"] is not None]
+        if len(x["starting"]) == 1 and taken:
+            out.append(f'<text class="rm-label" x="{x2 - 8}" y="{y1 - 6}" text-anchor="end">{_fmt(taken[0])} g</text>')
+        card = [f'<g class="rm-node rm-start" transform="translate({px},{py})">',
+                f'<rect class="rm-card rm-start-card" width="{CARD_W}" height="{CARD_H}" rx="9"/>',
+                '<text class="rm-title rm-start-title" x="14" y="20">Starting material'
+                + ("s" if len(x["starting"]) > 1 else "") + "</text>",
+                f'<rect class="rm-paper" x="12" y="28" width="{CARD_W - 22}" height="84" rx="5"/>']
+        src = img_src(r, 380, 170)
+        if src:
+            card.append(f'<image href="{html.escape(src)}" x="14" y="30" width="{CARD_W - 26}" height="80" '
+                        'preserveAspectRatio="xMidYMid meet"/>')
+        else:
+            card.append(f'<text class="rm-none" x="{CARD_W / 2 + 3}" y="74" text-anchor="middle">no structure</text>')
+        no = (numbers or {}).get(r["id"])
+        num = f'<tspan class="rm-no">{no}</tspan> ' if no else ""
+        card.append(f'<text class="rm-prod" x="14" y="130">{num}{_t(first["name"], 28 if no else 31)}</text>')
+        if first["taken_g"] is not None:
+            card.append(f'<text class="rm-stat" x="14" y="148">{_fmt(first["taken_g"])} g used</text>')
+        if len(x["starting"]) > 1:
+            more = ", ".join(f'{s["name"]}' + (f' ({_fmt(s["taken_g"])} g)' if s["taken_g"] is not None else "")
+                             for s in x["starting"][1:])
+            card.append(f'<text class="rm-sub" x="14" y="166">+ {_t(more, 30)}</text>')
+        card.append("</g>")
+        out.append("".join(card))
     for x in nodes:
         px, py = pos[x["id"]]
         prod = x["product"]
@@ -240,7 +280,7 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
             stats.append(f'<tspan class="{low}">{_fmt(x["remaining_g"])} g left</tspan>')
         stat = " · ".join(stats) or '<tspan class="rm-muted">no yield yet</tspan>'
         card.append(f'<text class="rm-stat" x="14" y="148">{stat}</text>')
-        if x["overall_yield"] is not None:
+        if x["overall_yield"] is not None and x["lls"] > 1:
             card.append(f'<text class="rm-sub" x="14" y="166">overall {x["overall_yield"]:.0f}% over {x["lls"]} steps</text>')
         elif x["stages"] > 1:
             card.append(f'<text class="rm-sub" x="14" y="166">one-pot, {x["stages"]} stages</text>')
@@ -253,6 +293,8 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
 ROUTE_CSS = """
 .route-map { font-family: inherit; max-width: 100%; height: auto; }
 .route-map .rm-card { fill: #fff; stroke: #cfd5dc; stroke-width: 1; }
+.route-map .rm-start-card { fill: #f6f7f9; stroke-dasharray: 4 3; }
+.route-map .rm-start-title { fill: #6b7480; }
 .route-map .rm-paper { fill: #fff; }
 .route-map .rm-title { font-size: 12px; font-weight: 650; fill: #1b1f24; }
 .route-map .rm-prod { font-size: 11.5px; fill: #1b1f24; }
@@ -276,7 +318,8 @@ def summary_rows(g: dict, ids: Optional[list[int]] = None) -> list[dict]:
         x = node[eid]
         froms = [e for e in g["edges"] if e["to"] == eid]
         out.append({**x, "n": n, "from": [{"id": e["from"], "title": node[e["from"]]["title"], "taken_g": e["taken_g"]}
-                                          for e in froms]})
+                                          for e in froms]
+                    + [{"id": None, "title": sm["name"], "taken_g": sm["taken_g"]} for sm in x["starting"]]})
     return out
 
 
