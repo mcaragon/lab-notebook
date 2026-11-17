@@ -303,3 +303,41 @@ iframe.preview { width: 100%; height: 80vh; border: 1px solid var(--line); borde
 .seq-sum .num { text-align: right; }
 .table-wrap { overflow-x: auto; }
 .seq-row .chip { text-decoration: none; color: var(--accent); }
+
+/* tabs (workspaces) */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 14px; overflow-x: auto; scrollbar-width: none; }
+.tabs a { padding: 9px 18px; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; font-weight: 600; white-space: nowrap; }
+.tabs a:hover { color: var(--ink); }
+.tabs a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* bench: reagent checklist */
+.checklist .cl-head { width: 100%; text-decoration: none; color: inherit; gap: 10px; }
+.checklist .cl-head h2 { margin: 0; }
+.cl-grid { display: grid; grid-template-columns: 1fr; margin-top: 8px; }
+.cl-row { display: grid; grid-template-columns: 22px minmax(140px, 1.4fr) minmax(120px, 1fr) minmax(170px, 1fr); gap: 4px 10px; align-items: center;
+  padding: 5px 2px; border-bottom: 1px solid var(--line); }
+.cl-row.measured .cl-check { color: var(--ok); font-weight: 700; }
+.cl-check { color: var(--muted); text-align: center; }
+.cl-name { font-weight: 600; }
+.cl-plan { font-variant-numeric: tabular-nums; }
+.cl-act { display: flex; align-items: center; gap: 8px; }
+.cl-act .act-in { max-width: 150px; }
+.cl-row.prod .cl-name { color: var(--accent); }
+@media (max-width: 600px) {
+  .cl-row { grid-template-columns: 22px 1fr; }
+  .cl-plan, .cl-act { grid-column: 2; }
+}
+
+/* bench: log column scrolls; composer stays under it */
+.pl-log { position: sticky; top: calc(var(--top) + 70px); display: flex; flex-direction: column; gap: 8px;
+  max-height: calc(100vh - var(--top) - 90px); overflow: visible; }
+.pl-log .log-scroll { overflow-y: auto; min-height: 120px; flex: 1 1 auto; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 8px; }
+.pl-log .composer { flex: 0 0 auto; margin: 0; }
+.timer { padding: 4px 4px 4px 12px; }
+.timer .t-label { max-width: 240px; }
+.timer .t-val { font-size: 1.05rem; }
+.timer .t-stop { width: auto; padding: 0 10px; font-weight: 600; }
+.mention-list { position: absolute; }
+.field, .quick { position: relative; }
+.composer { grid-template-columns: minmax(0, 1fr); }
+.quick .btn { flex: 0 0 auto; }

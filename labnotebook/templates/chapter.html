@@ -5,7 +5,7 @@
   {%- for p in h.pictograms %}{% if c.ghs.get(p) %}<img class="ghs" src="{{ c.ghs[p] }}" alt="{{ p }}">{% else %}<span class="tag">{{ p }}</span> {% endif %}{% endfor -%}
   {{ nfpa_svg(h.nfpa, 6) | safe }}
   {%- if h.signal %} <span class="{{ h.signal | lower }}">{{ h.signal }}</span>{% endif %}
-  {%- if h.codes %}<div class="codes">{{ h.codes | join(' ') }}</div>{% endif %}
+  {%- if h.codes %}<div class="codes">{{ h.codes | join(' ') }}</div>{% elif h.not_classified %}<div class="small">Not classified (GHS)</div>{% endif %}
   {%- if h.fp is not none or h.dot %}<div class="small">{% if h.fp is not none %}fp {{ h.fp | fmt_fixed(0) }} °C{% endif %}{% if h.fp is not none and h.dot %} · {% endif %}{% if h.dot %}DOT {{ h.dot }}{% endif %}</div>{% endif %}
   {%- if h.alerts %}<div class="alert">{{ h.alerts | join(', ') }}</div>{% endif %}
   {%- if h.notes %}<div><i>{{ h.notes }}</i></div>{% endif %}
@@ -65,22 +65,29 @@
 {%- macro step_body(st, h) %}
 {{ reagent_table(st) }}
 {%- if st.procedure %}
-<{{ h }}>Procedure</{{ h }}>
-<ol class="procedure">
-  {%- for p in st.procedure %}
-  <li>{{ p.html | safe }}{% if p.done_at %} <span class="small">(done {{ p.done_at[11:16] }})</span>{% endif %}
-    {%- if p.notes %}<br><span class="note">Note: {{ p.notes }}</span>{% endif %}</li>
+<{{ h }}>Procedure and log</{{ h }}>
+<table class="proclog">
+  <thead><tr><th class="pl-p">Procedure</th><th>Log</th></tr></thead>
+  <tbody>
+  {%- for row in st.proc_log %}
+  <tr>
+    <td class="pl-p">{% if row.p %}<b>{{ row.p.n }}.</b> {{ row.p.html | safe }}
+      {%- if row.p.notes %}<br><span class="note">Note: {{ row.p.notes }}</span>{% endif %}
+      {%- if row.p.done_at %}<br><span class="small">done {{ row.p.done_at[11:16] }}</span>{% endif %}
+      {%- else %}<span class="small"><i>Before the procedure</i></span>{% endif %}</td>
+    <td>{% for e in row.entries %}<div class="le"><span class="small">{{ e.time }}{% if e.tplus %} · T+{{ e.tplus }}{% endif %}</span> {{ e.text }}{% if e.value %} <b>{{ e.value }} {{ e.unit or '' }}</b>{% endif %}</div>{% endfor %}</td>
+  </tr>
   {%- endfor %}
-</ol>
-{%- endif %}
-{%- if st.log %}
+  </tbody>
+</table>
+{%- elif st.log %}
 <{{ h }}>Log</{{ h }}>
 <table>
-  <thead><tr><th>Time</th><th class="num">T+</th><th class="num">Step</th><th>Entry</th></tr></thead>
+  <thead><tr><th>Time</th><th class="num">T+</th><th>Entry</th></tr></thead>
   <tbody>
   {%- for e in st.log %}
   <tr><td class="small" style="white-space:nowrap">{{ e.time }}</td><td class="num small">{{ e.tplus }}</td>
-    <td class="num small">{{ e.proc_no or '' }}</td><td>{{ e.text }}{% if e.value %} <b>{{ e.value }} {{ e.unit or '' }}</b>{% endif %}</td></tr>
+    <td>{{ e.text }}{% if e.value %} <b>{{ e.value }} {{ e.unit or '' }}</b>{% endif %}</td></tr>
   {%- endfor %}
   </tbody>
 </table>

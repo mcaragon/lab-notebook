@@ -191,9 +191,26 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def compute(bundle: dict) -> dict:
         return stoich.compute_experiment(bundle["steps"], bundle["reagents"], db.stoich_rows)
 
-    def names_for(bundle: dict):
-        by_id = {r["id"]: scheme.label(r) for r in bundle["reagents"]}
-        return lambda rid: by_id.get(rid) if rid is not None else None
+    def names_for(exp_id: int):
+        by_id = {r["id"]: scheme.label(r) for r in store.list("reagents", "experiment_id = ?", (exp_id,))}
+        return lambda rid: by_id.get(int(rid)) if rid not in (None, "") else None
+
+    def sync_actuals(exp_id: int, rids) -> None:
+        """Set the actual amount of these reagents from the log (Add and Amount used entries)."""
+        rids = {int(r) for r in rids if r}
+        if not rids:
+            return
+        entries = store.list("entries", "experiment_id = ?", (exp_id,), order="ts, id")
+        for rid in rids:
+            r = store.get("reagents", rid)
+            if not r or r["experiment_id"] != exp_id or r["role"] == "product":
+                continue
+            a = actions.actual_from_log(entries, rid)
+            if a:
+                store.update_reagent(rid, {"actual_value": round(a[0], 6),
+                                           "actual_basis": "mass" if a[1] == "g" else "volume"})
+            else:
+                store.update_reagent(rid, {"actual_value": None, "actual_basis": None})
 
     def detail(exp_id: int) -> dict:
         b = store.bundle(exp_id)
@@ -227,7 +244,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         exp = need_exp(exp_id)
         ts = extra.pop("ts", None) or db.now()
         if text is None:
-            text = actions.describe(action, data or {}, names_for(store.bundle(exp_id)))
+            text = actions.describe(action, data or {}, names_for(exp_id))
             custom = False
         else:
             custom = action in actions.ACTIONS and action not in ("observation", "note")
@@ -448,16 +465,17 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
                 sources[k] = "manual"
             data["sources"] = sources
         store.update_reagent(rid, data)
-        # Recording an actual amount logs it (once per reagent; corrections update that entry)
+        # Recording an actual amount in the table logs it (as one "Amount used" entry per reagent; corrections
+        # update that entry). The log is the record of what was used.
         if ("actual_value" in data or "actual_basis" in data) and current["role"] != "product":
             r = store.get("reagents", rid)
             value, basis = r.get("actual_value"), r.get("actual_basis") or "mass"
             prev = [e for e in store.list("entries", "experiment_id = ? AND action = 'weigh'",
                                           (current["experiment_id"],), order="id")
-                    if (e.get("data") or {}).get("reagent_id") == rid]
+                    if actions.entry_reagent(e) == rid]
             if value is not None:
-                ed = {"reagent_id": rid, "value": value, "unit": "g" if basis == "mass" else "mL"}
-                text = actions.describe("weigh", ed, names_for(store.bundle(current["experiment_id"])))
+                ed = {"chem": {"reagent_id": rid}, "amount": value, "unit": "g" if basis == "mass" else "mL"}
+                text = actions.describe("weigh", ed, names_for(current["experiment_id"]))
                 if prev:
                     store.update("entries", prev[-1]["id"], {"data": ed, "text": text})
                 else:
@@ -588,6 +606,8 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
                     store.update_reagent(prod["id"], {field: float(payload.get("mass"))})
                 except (TypeError, ValueError):
                     pass
+        if action in actions.AMOUNT_ACTIONS:
+            sync_actuals(exp_id, [actions.entry_reagent({"data": payload})])
         if body.start_timer:
             _start_timer(exp_id, body.start_timer, start_entry_id=eid)
         out = detail(exp_id)
@@ -607,11 +627,12 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             if e["action"] in ("note", "observation"):
                 data["text"] = (data["data"] or {}).get("text", "")
             elif not (data.get("custom_text") or e.get("custom_text")):
-                data["text"] = actions.describe(e["action"], data["data"] or {},
-                                                names_for(store.bundle(e["experiment_id"])))
+                data["text"] = actions.describe(e["action"], data["data"] or {}, names_for(e["experiment_id"]))
         if "text" in data and e["action"] in ("note", "observation"):
             data["data"] = {**(e.get("data") or {}), **(data.get("data") or {}), "text": data["text"]}
         store.update("entries", eid, data)
+        if e["action"] in actions.AMOUNT_ACTIONS:
+            sync_actuals(e["experiment_id"], [actions.entry_reagent(e), actions.entry_reagent(store.get("entries", eid))])
         store.touch(e["experiment_id"])
         return detail(e["experiment_id"])
 
@@ -619,6 +640,8 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def delete_entry(eid: int):
         e = need("entries", eid, "Entry")
         store.delete("entries", eid)
+        if e["action"] in actions.AMOUNT_ACTIONS:
+            sync_actuals(e["experiment_id"], [actions.entry_reagent(e)])
         store.touch(e["experiment_id"])
         return detail(e["experiment_id"])
 

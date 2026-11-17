@@ -78,6 +78,21 @@ def h_text(statement: str) -> str:
     return re.sub(r"\s*\[[^\]]*\]\s*$", "", statement or "").strip()
 
 
+H_RE = re.compile(r"^\s*(?:EU)?H\d{3}")
+
+
+def ghs_statements(statements: list[str]) -> tuple[list[str], bool]:
+    """Real H-statements (unique by code) and whether PubChem reports the substance as not classified.
+
+    PubChem's GHS list also carries entries such as "Not Classified" and "Reported as not meeting GHS hazard
+    criteria by 1866 of 1876 companies ..."; those are not hazard statements."""
+    real = [s for s in statements or [] if H_RE.match(s or "")]
+    not_classified = any(not H_RE.match(s or "") and ("not classified" in (s or "").lower()
+                                                       or "not meeting ghs" in (s or "").lower())
+                         for s in statements or [])
+    return unique_h(real), not_classified
+
+
 def unique_h(statements: list[str]) -> list[str]:
     seen, out = set(), []
     for s in statements or []:
@@ -213,7 +228,7 @@ def hazard_info(r: dict) -> dict:
     """Everything the hazard cell of a reagent row shows."""
     extra = r.get("extra_hazards") or {}
     dot = extra.get("dot") or {}
-    statements = unique_h(r.get("hazard_statements"))
+    statements, not_classified = ghs_statements(r.get("hazard_statements"))
     dot_parts = list(dot.get("un") or [])
     dot_parts += [re.sub(r"^(Class|Div)\s+([\d.]+[A-Z]?).*", r"\1 \2", c)
                   for c in dot.get("classes") or [] if "forbidden" not in c.lower()][:2]
@@ -224,6 +239,7 @@ def hazard_info(r: dict) -> dict:
         "codes": [h_code(h) for h in statements], "statements": statements,
         "dot": ", ".join(dot_parts), "forbidden": bool(dot.get("forbidden")), "nfpa": extra.get("nfpa"),
         "alerts": extra.get("alerts") or [], "notes": r.get("hazard_notes"),
+        "not_classified": not_classified and not statements,
     }
 
 
@@ -249,6 +265,23 @@ def _row(r: dict, c: dict, usage: dict, ref_no: dict) -> dict:
         "form": form_text(r), "provenance": provenance(r), "haz": hazard_info(r),
         "expected_ref": ref_no.get(r.get("expected_ref_id")),
     }
+
+
+def pair_procedure_log(procedure: list[dict], log: list[dict]) -> list[dict]:
+    """Rows of procedure steps with the log entries made during each one.
+
+    An entry belongs to its procedure step; entries without one join the step worked on at that time (that of the
+    entry before them). Entries before any step form a first row without a step."""
+    rows = [{"p": p, "entries": []} for p in procedure]
+    by_id = {r["p"]["id"]: r for r in rows}
+    before = {"p": None, "entries": []}
+    current = None
+    for e in log:
+        row = by_id.get(e.get("procedure_id"))
+        if row is not None:
+            current = row
+        (current or before)["entries"].append(e)
+    return ([before] if before["entries"] else []) + rows
 
 
 def _assign_entries(bundle: dict) -> dict[int, Any]:
@@ -319,6 +352,7 @@ def build_context(bundle: dict, calc: dict, settings: Any = None,
             "legend": sorted(legend.items(), key=lambda kv: kv[0]),
             "planned_only": any(x["planned_only"] for x in inputs),
             "conditions": scheme.conditions_text(s), "procedure": procedure, "log": log,
+            "proc_log": pair_procedure_log(procedure, log),
             "scheme_html": _scheme_html(step_scheme, img) if step_scheme and not step_scheme["empty"] else "",
             "yield": calc["steps"].get(s["id"], {}).get("step_yield"),
         })
@@ -400,6 +434,8 @@ def _md_hazard(h: dict) -> str:
         parts.append(h["signal"])
     if h["codes"]:
         parts.append(" ".join(h["codes"]))
+    elif h.get("not_classified"):
+        parts.append("Not classified (GHS)")
     if h["fp"] is not None:
         parts.append(f"fp {fmt_fixed(h['fp'], 0)} °C")
     if h["dot"]:
@@ -438,17 +474,29 @@ def _md_step(ctx: dict, st: dict, lvl: int) -> list[str]:
             out += ["\\* planned amount; no measurement recorded.", ""]
         if st["legend"]:
             out += ["Hazard statements: " + "; ".join(text for _, text in st["legend"]), ""]
+    def entry_line(e: dict) -> str:
+        val = f" ({e['value']} {e.get('unit') or ''})".rstrip() if e.get("value") else ""
+        when = e["time"] + (f", T+{e['tplus']}" if e["tplus"] else "")
+        return f"{when}: {e['text']}{val}"
+
     if st["procedure"]:
-        out += [f"{h} Procedure", ""]
-        for p in st["procedure"]:
+        out += [f"{h} Procedure and log", ""]
+        for row in st["proc_log"]:
+            p = row["p"]
+            if p is None:
+                out.append("*Before the procedure:*")
+                out += [f"- {entry_line(e)}" for e in row["entries"]]
+                out.append("")
+                continue
             line = f"{p['n']}. {p['rendered']}"
             if p.get("done_at"):
                 line += f" *(done {fmt_ts(p['done_at'], with_date=False)})*"
             out.append(line)
             if p.get("notes"):
                 out.append(f"   - *Note:* {p['notes']}")
+            out += [f"   - {entry_line(e)}" for e in row["entries"]]
         out.append("")
-    if st["log"]:
+    elif st["log"]:
         out += [f"{h} Log", ""]
         out += _table(["Time", "T+", "Step", "Entry"], ["l", "r", "r", "l"],
                       [[e["time"], e["tplus"], e["proc_no"] or "",

@@ -26,6 +26,14 @@ ACTIONS: dict[str, dict] = {
             {"name": "temp", "label": "At (°C)", "type": "text"},
         ],
     },
+    "weigh": {
+        "label": "Amount used",
+        "fields": [
+            {"name": "chem", "label": "What", "type": "chem", "required": True},
+            {"name": "amount", "label": "Amount", "type": "number", "required": True},
+            {"name": "unit", "label": "Unit", "type": "select", "options": ["g", "mg", "mL", "µL"]},
+        ],
+    },
     "quench": {
         "label": "Quench",
         "fields": [
@@ -112,7 +120,9 @@ ACTIONS: dict[str, dict] = {
     "note": {"label": "Note", "fields": [{"name": "text", "label": "Note", "type": "text", "required": True}]},
 }
 # Created by the app, not offered in the action picker
-SYSTEM_ACTIONS = {"weigh", "timer", "start", "end", "procedure"}
+SYSTEM_ACTIONS = {"timer", "start", "end", "procedure"}
+# Actions whose amount is the reagent's actual (measured) amount
+AMOUNT_ACTIONS = ("add", "weigh")
 
 
 def fmt_num(v: Any) -> str:
@@ -244,7 +254,9 @@ def describe(action: str, data: dict, names: Callable[[Any], Optional[str]] = la
     if action == "measure":
         return f"{d.get('quantity') or 'Measurement'}: {d.get('value') or ''} {d.get('unit') or ''}".strip()
     if action == "weigh":
-        return f"{names(d.get('reagent_id')) or 'Reagent'} measured: {fmt_num(d.get('value'))} {d.get('unit') or ''}".strip()
+        what = _chem(d, "chem", names) if d.get("chem") else (names(d.get("reagent_id")) or "Reagent")
+        amount = d.get("amount", d.get("value"))
+        return f"{what} measured: {fmt_num(amount)} {d.get('unit') or ''}".strip()
     if action in ("observation", "note"):
         return str(d.get("text") or "")
     return str(d.get("text") or "")
@@ -282,3 +294,48 @@ def usage(entries: list[dict]) -> dict[int, dict[str, float]]:
                 unit, amt = "mL", amt / 1000
             u[unit] = u.get(unit, 0) + amt
     return out
+
+
+def entry_reagent(e: dict) -> Optional[int]:
+    """Reagent id an amount entry refers to (add / weigh)."""
+    d = e.get("data") or {}
+    chem = d.get("chem")
+    rid = chem.get("reagent_id") if isinstance(chem, dict) else None
+    return rid or d.get("reagent_id")
+
+
+def entry_amount(e: dict) -> Optional[tuple[float, str]]:
+    """(amount, 'g' | 'mL') of an amount entry, converting mg and µL; None for other units."""
+    d = e.get("data") or {}
+    amount = d.get("amount", d.get("value"))
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return None
+    unit = d.get("unit") or "g"
+    if unit == "mg":
+        return amount / 1000, "g"
+    if unit in ("µL", "uL"):
+        return amount / 1000, "mL"
+    if unit in ("g", "mL"):
+        return amount, unit
+    return None
+
+
+def actual_from_log(entries: list[dict], rid: int) -> Optional[tuple[float, str]]:
+    """The actual amount of a reagent according to the log: the latest 'Amount used' entry, else the total of the
+    'Add' entries (in the unit of the first one). None when the log has no amount for it."""
+    mine = [e for e in entries if e.get("action") in AMOUNT_ACTIONS and entry_reagent(e) == rid]
+    weighs = [e for e in mine if e["action"] == "weigh" and entry_amount(e)]
+    if weighs:
+        return entry_amount(weighs[-1])
+    total, unit = 0.0, None
+    for e in mine:
+        a = entry_amount(e)
+        if not a:
+            continue
+        if unit is None:
+            unit = a[1]
+        if a[1] == unit:
+            total += a[0]
+    return (total, unit) if unit else None

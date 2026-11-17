@@ -251,3 +251,29 @@ def test_frontend_served(client):
     assert r.status_code == 200 and "Lab Notebook" in r.text
     for f in ("main.js", "state.js", "reagents.js", "procedure.js", "bench.js", "reaction.js", "results.js"):
         assert client.get(f"/static/js/{f}").status_code == 200
+
+
+def test_log_amounts_update_actual(client):
+    exp_id, sid = new_exp(client)
+    ald = add(client, exp_id, query="benzaldehyde", step_id=sid, basis="mass", basis_value=1.06)["reagent_id"]
+    bh = add(client, exp_id, query="sodium borohydride", role="reagent", step_id=sid)["reagent_id"]
+    # "Amount used" sets the actual amount
+    d = client.post(f"/api/experiments/{exp_id}/entries", json={
+        "action": "weigh", "data": {"chem": {"reagent_id": ald}, "amount": 1.02, "unit": "g"}}).json()
+    r = rows(d)[ald]
+    assert r["actual_value"] == 1.02 and r["actual_basis"] == "mass"
+    assert d["entries"][-1]["text"] == "Benzaldehyde measured: 1.02 g"
+    # additions in portions add up
+    for amt in (100, 90):
+        d = client.post(f"/api/experiments/{exp_id}/entries", json={
+            "action": "add", "data": {"chem": {"reagent_id": bh}, "amount": amt, "unit": "mg", "mode": "portionwise"}}).json()
+    assert rows(d)[bh]["actual_value"] == pytest.approx(0.19)
+    # deleting an addition updates the total; deleting the last clears it
+    adds = [e for e in d["entries"] if e["action"] == "add"]
+    d = client.delete(f"/api/entries/{adds[0]['id']}").json()
+    assert rows(d)[bh]["actual_value"] == pytest.approx(0.09)
+    d = client.delete(f"/api/entries/{adds[1]['id']}").json()
+    assert rows(d)[bh]["actual_value"] is None
+    # a value typed in the reagent table becomes an "Amount used" entry and wins over additions
+    d = client.put(f"/api/reagents/{bh}", json={"actual_basis": "mass", "actual_value": 0.2}).json()
+    assert [e["text"] for e in d["entries"] if e["action"] == "weigh"][-1] == "Sodium borohydride measured: 0.2 g"
