@@ -171,3 +171,12 @@ def test_set_password_command(tmp_path, monkeypatch, capsys):
     u = a.find_user("boss")
     assert auth.verify_password("a brand new password", u["password_hash"]) and u["active"]
     assert "Password set" in capsys.readouterr().out
+
+
+def test_app_files_are_revalidated(client):
+    """After an update, browsers and proxies must not keep running old JavaScript."""
+    r = client.get("/static/js/main.js")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache" and r.headers.get("etag")
+    assert client.get("/static/js/main.js", headers={"If-None-Match": r.headers["etag"]}).status_code == 304
+    assert "max-age" in client.get("/static/fonts/inter-latin-wght-normal.woff2").headers["cache-control"]
+    assert client.get("/").headers["cache-control"] == "no-cache"

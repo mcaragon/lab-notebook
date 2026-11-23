@@ -307,7 +307,14 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
             async def send_with_headers(message):
                 if message["type"] == "http.response.start":
-                    message["headers"] = list(message.get("headers") or []) + SECURITY_HEADERS
+                    headers = list(message.get("headers") or [])
+                    # App files: browsers and proxies (e.g. Cloudflare) must check for a newer version before using a
+                    # cached copy, so an update reaches everyone at once (unchanged files answer 304, which is cheap).
+                    # Fonts never change and may be cached for a long time.
+                    if path.startswith("/static/") and not any(k == b"cache-control" for k, _ in headers):
+                        long = path.startswith("/static/fonts/")
+                        headers.append((b"cache-control", b"public, max-age=31536000" if long else b"no-cache"))
+                    message["headers"] = headers + SECURITY_HEADERS
                 await send(message)
 
             async def refuse(status: int, detail: str):
