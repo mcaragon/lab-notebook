@@ -5,6 +5,24 @@ import { resizer } from "./resize.js";
 import { themeSwitch, bindThemeSwitch } from "./theme.js";
 import { state } from "./state.js";
 import { changePassword, signOut } from "./login.js";
+import { openFeedback } from "./feedback.js";
+
+let unseen = { replies: 0, new_reports: 0 };
+async function checkUnseen() {
+  try { unseen = await api("GET", "/api/feedback/unseen"); } catch { return; }
+  drawBadges();
+}
+function drawBadges() {
+  const n = (unseen.replies || 0) + (unseen.new_reports || 0);
+  const b = $("#sb-badge");
+  if (b) { b.textContent = n; b.hidden = !n; b.title = [unseen.new_reports ? `${unseen.new_reports} new report(s) in Admin → Feedback` : "",
+    unseen.replies ? `${unseen.replies} reply(ies) to your reports` : ""].filter(Boolean).join("; "); }
+  const r = $("#sb-fb-count");
+  if (r) { r.textContent = unseen.replies || ""; r.hidden = !unseen.replies; }
+  const a = $("#sb-admin-count");
+  if (a) { a.textContent = unseen.new_reports || ""; a.hidden = !unseen.new_reports; }
+}
+window.addEventListener("feedback-seen", checkUnseen);
 
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
 let cache = { experiments: [], projects: [] };
@@ -74,12 +92,13 @@ function draw() {
     </nav>
     <div class="sb-foot"><span id="pubchem-status" class="pill">PubChem Local …</span><span class="spacer"></span>${themeSwitch()}</div>
     ${state.user ? `<details class="sb-user"><summary><span class="avatar" aria-hidden="true">${esc((state.user.display_name || state.user.username).slice(0, 1).toUpperCase())}</span>
-      <span class="sb-title">${esc(state.user.display_name || state.user.username)}</span>
+      <span class="sb-title">${esc(state.user.display_name || state.user.username)}</span><span class="sb-badge" id="sb-badge" hidden></span>
       ${state.user.is_admin ? '<span class="tag role-admin">admin</span>' : state.user.demo ? '<span class="tag t-warn">demo</span>' : ""}</summary>
       <div class="menu-list">
-        ${state.user.is_admin ? '<a href="#/admin" data-href="#/admin">⚙ Admin dashboard</a>' : ""}
+        ${state.user.is_admin ? '<a href="#/admin" data-href="#/admin">⚙ Admin dashboard <span class="sb-badge" id="sb-admin-count" hidden></span></a>' : ""}
+        <button id="sb-report">⚑ Report a problem</button>
+        <button id="sb-myreports">My reports <span class="sb-badge" id="sb-fb-count" hidden></span></button>
         <button id="sb-password">Change password…</button>
-        ${reportLink()}
         <button id="sb-signout">Sign out</button>
         <span class="menu-note">Lab Notebook ${esc(state.config?.version || "")}</span>
       </div></details>` : ""}
@@ -101,6 +120,11 @@ function draw() {
     try { await changePassword(); toast("Password changed. Other devices were signed out."); }
     catch (e) { toast(e.message, true); }
   };
+  const close = () => { const d = $(".sb-user", root); if (d) d.open = false; };
+  $("#sb-report", root)?.addEventListener("click", () => { close(); openFeedback("new"); });
+  $("#sb-myreports", root)?.addEventListener("click", () => { close(); openFeedback("mine"); });
+  drawBadges();
+  if (state.user) checkUnseen();
   const so = $("#sb-signout", root);
   if (so) so.onclick = () => signOut();
   $("#sb-new-exp", root).onclick = async () => {
@@ -119,17 +143,6 @@ function draw() {
   };
   root.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => document.body.classList.remove("sb-open")));
   window.dispatchEvent(new Event("sidebar-drawn"));
-}
-
-/** "Report a problem": the project's issue form, with the version filled in (opens in a new tab). */
-function reportLink() {
-  const base = state.config?.issues_url;
-  if (!base) return "";
-  let url = base;
-  if (/\/issues\/new\/choose\/?$/.test(base)) {
-    url = base.replace(/\/choose\/?$/, "") + `?template=bug_report.yml&version=${encodeURIComponent(state.config.version || "")}`;
-  }
-  return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">⚑ Report a problem ↗</a>`;
 }
 
 export function setHidden(hidden) {

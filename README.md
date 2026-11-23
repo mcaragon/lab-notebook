@@ -38,6 +38,8 @@ PubChem database** ([PubChem Local](https://github.com/mcaragon/local_pubchem_db
   next to the log, yields, references (PubChem citations added automatically). Project reports cover a whole route.
 - **Accounts:** everyone gets a private notebook. Admins invite people with one-time links, can set demo limits
   (expiry, number of experiments) and download backups.
+- **Built-in feedback:** testers report problems and ideas from inside the app (with a screenshot); admins answer
+  them in a Feedback inbox.
 - **Light and night themes**, and a layout that works from a 27" monitor down to a phone.
 
 <table>
@@ -58,23 +60,26 @@ drawings, GHS pictograms) goes to your self-hosted [PubChem Local](https://githu
 offline copy of the PubChem data. There are no analytics, trackers, CDNs or web fonts: everything the browser loads
 comes from Lab Notebook itself, and the browser never talks to PubChem Local directly.
 
-Your notebook is a single SQLite file on your server. The only outside links are ones you click (a compound's PubChem
-page, or "Report a problem").
+Your notebook is a single SQLite file on your server. Problem reports sent from the app are stored there too. The only
+outside links are ones you click (a compound's PubChem page, or an admin's *Copy to GitHub*).
 
 ## Feedback and bug reports
 
-Thank you for testing! The quickest way: **user menu (bottom of the sidebar) → ⚑ Report a problem**, which opens a
-bug report here with the app's version filled in. Or go straight to:
+Thank you for testing! In the app, open the user menu (bottom of the sidebar) → **⚑ Report a problem**. Pick bug,
+idea or question, describe it, and add a screenshot if it helps (choose a file or paste with Ctrl+V). The page you
+were on, the app version and your browser are added for you. No GitHub account needed.
 
-- 🐞 **[Report a bug](https://github.com/mcaragon/lab-notebook/issues/new?template=bug_report.yml)**: what you did,
-  what happened, what you expected. Screenshots help a lot; a made-up example reaction is perfect.
-- 💡 **[Suggest an idea](https://github.com/mcaragon/lab-notebook/issues/new?template=feature_request.yml)**:
-  something missing, awkward or slow at the bench.
+Reports stay in that Lab Notebook: its admins read them under **Admin → Feedback**, and their replies show up for you
+under **My reports** (a red badge on your name means there's a reply).
+
+If you have a GitHub account, you can also use the issue tracker directly:
+
+- 🐞 **[Report a bug](https://github.com/mcaragon/lab-notebook/issues/new?template=bug_report.yml)**
+- 💡 **[Suggest an idea](https://github.com/mcaragon/lab-notebook/issues/new?template=feature_request.yml)**
 - 🔒 **Security problem** (for example seeing someone else's data): please report it privately, see
   [SECURITY.md](SECURITY.md).
 
-You need a (free) GitHub account to open an issue. Please don't post passwords, invite links or real data you'd
-rather keep private.
+Please don't post passwords, invite links or real data you'd rather keep private.
 
 ## Install
 
@@ -189,7 +194,7 @@ and vibration alerts work everywhere.
 | `COOKIE_SECURE` | `auto` | `auto`: Secure cookies when reached over HTTPS; `true` / `false` to force |
 | `CLIENT_IP_HEADER` | | Header with the visitor's address set by your proxy, e.g. `CF-Connecting-IP` |
 | `SESSION_DAYS` | `30` | How long a sign-in lasts without use |
-| `ISSUES_URL` | this repository's issues | Where *Report a problem* in the user menu leads; empty hides it |
+| `ISSUES_URL` | this repository's issues | Where *Copy to GitHub* in Admin → Feedback opens a pre-filled issue; empty hides it |
 
 ## Accounts and exposing it
 
@@ -284,6 +289,7 @@ Debian/Ubuntu). Without it, PDF export returns HTTP 501 and the other formats st
 | --- | --- |
 | `labnotebook/app.py` | FastAPI app: JSON API, access control, admin routes, PubChem Local proxy, report downloads, frontend |
 | `labnotebook/auth.py` | Accounts: password hashing, sessions, invites, sign-in throttling |
+| `labnotebook/feedback.py` | Problem reports sent from the app (stored in the notebook, read in Admin → Feedback) |
 | `labnotebook/stoich.py` | Stoichiometry: planned/actual amounts, limiting reagent, yields (pure functions) |
 | `labnotebook/actions.py` | Log actions: fields and the sentences they produce |
 | `labnotebook/scheme.py`, `templates/scheme.html` | Reaction scheme layout and `@` mentions |
