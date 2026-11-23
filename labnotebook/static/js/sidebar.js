@@ -79,7 +79,9 @@ function draw() {
       <div class="menu-list">
         ${state.user.is_admin ? '<a href="#/admin" data-href="#/admin">⚙ Admin dashboard</a>' : ""}
         <button id="sb-password">Change password…</button>
+        ${reportLink()}
         <button id="sb-signout">Sign out</button>
+        <span class="menu-note">Lab Notebook ${esc(state.config?.version || "")}</span>
       </div></details>` : ""}
     ${resizer("--side", "parent", 200, 480, "Resize the sidebar")}`;
   markActive();
@@ -117,6 +119,17 @@ function draw() {
   };
   root.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => document.body.classList.remove("sb-open")));
   window.dispatchEvent(new Event("sidebar-drawn"));
+}
+
+/** "Report a problem": the project's issue form, with the version filled in (opens in a new tab). */
+function reportLink() {
+  const base = state.config?.issues_url;
+  if (!base) return "";
+  let url = base;
+  if (/\/issues\/new\/choose\/?$/.test(base)) {
+    url = base.replace(/\/choose\/?$/, "") + `?template=bug_report.yml&version=${encodeURIComponent(state.config.version || "")}`;
+  }
+  return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">⚑ Report a problem ↗</a>`;
 }
 
 export function setHidden(hidden) {

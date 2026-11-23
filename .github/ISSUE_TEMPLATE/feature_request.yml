@@ -1,0 +1,22 @@
+name: Idea or feature request
+description: Something missing, awkward or slower than it should be at the bench.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation in the lab or while writing up, not the solution yet.
+      placeholder: "When I run three reactions in parallel I lose track of which timer belongs to which flask."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: How you'd like it to work, if you have an idea.
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: A reaction, a report you'd like to produce, a screenshot of how you do it now (paper notebook photos welcome).

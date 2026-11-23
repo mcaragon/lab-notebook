@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem (report privately)
+    url: https://github.com/mcaragon/lab-notebook/security/advisories/new
+    about: Someone could see or change data that isn't theirs, sign in without a password, etc. Please don't open a public issue.

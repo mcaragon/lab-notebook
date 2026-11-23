@@ -1,0 +1,69 @@
+name: Bug report
+description: Something doesn't work, shows the wrong number, or looks broken.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing Lab Notebook! The more concrete the steps, the faster it gets fixed.
+
+        **Please don't paste passwords, invite links or private data.** If the bug is a security problem
+        (someone could see or change data that isn't theirs), report it privately instead: see the
+        [security policy](https://github.com/mcaragon/lab-notebook/security/policy).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, including any error message (the red pop-up at the bottom of the screen).
+      placeholder: "After logging 'Amount used' for NaBH4, the yield on the Results tab didn't change."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Which tab, which buttons, what you typed. A made-up example reaction is perfect.
+      placeholder: |
+        1. New experiment, add benzaldehyde (1.06 g) and NaBH4 (0.5 equiv)
+        2. Bench tab → Amount used → NaBH4, 0.20 g
+        3. Results tab
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in the user menu (bottom of the sidebar). "Report a problem" there fills this in.
+      placeholder: "0.7.0"
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in the app?
+      options:
+        - Plan (reaction scheme, reagents, hazards)
+        - Bench (checklist, procedure, log, timers)
+        - Results / yields
+        - Reports (PDF, Markdown, print)
+        - Projects / route map / branching
+        - Sign-in, accounts or admin
+        - Chemical data (PubChem Local lookups, structures, hazards)
+        - Layout / looks / phone
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: "iPhone 15, Safari / Windows laptop, Firefox 133"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here. Crop out anything private.

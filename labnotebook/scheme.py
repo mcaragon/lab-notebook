@@ -193,9 +193,11 @@ def amount_phrase(r: dict, c: dict) -> str:
     mmol = c.get("act_mmol") if act else c.get("mmol")
     parts = []
     liquid = r.get("form") != "neat" or (r.get("basis") == "volume" or r.get("actual_basis") == "volume")
-    if r.get("role") == "solvent":
+    if r.get("role") in ("solvent", "workup"):  # solvents and workup materials: just how much
         if vol is not None:
             parts.append(f"{fmt(vol)} mL")
+        elif mass is not None:
+            parts.append(f"{fmt(mass)} g")
     else:
         if liquid and vol is not None:
             parts.append(f"{fmt(vol)} mL")

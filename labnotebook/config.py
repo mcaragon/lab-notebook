@@ -22,6 +22,8 @@ class Settings:
     # Header with the real client address set by a trusted proxy (e.g. CF-Connecting-IP behind Cloudflare Tunnel);
     # used for sign-in throttling and the activity log. Empty: the address of the connection.
     client_ip_header: str = ""
+    # Where "Report a problem" in the app sends people (empty: no link)
+    issues_url: str = "https://github.com/mcaragon/lab-notebook/issues/new/choose"
 
     @property
     def db_path(self) -> Path:
@@ -40,4 +42,5 @@ def load_settings() -> Settings:
         admin_username=os.environ.get("ADMIN_USERNAME", "").strip(),
         admin_password=os.environ.get("ADMIN_PASSWORD", ""),
         client_ip_header=os.environ.get("CLIENT_IP_HEADER", "").strip(),
+        issues_url=os.environ.get("ISSUES_URL", "https://github.com/mcaragon/lab-notebook/issues/new/choose").strip(),
     )
