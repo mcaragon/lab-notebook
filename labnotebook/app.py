@@ -479,6 +479,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     @app.get("/api/config")
     def config():
         return {"version": __version__, "author": default_author() or "", "lab_name": settings.lab_name,
+                "issues_url": settings.issues_url,
                 "sections": db.SECTIONS, "roles": stoich.ROLES, "forms": stoich.FORMS, "bases": stoich.BASES,
                 "actions": actions.ACTIONS, "units": actions.AMOUNT_UNITS}
 

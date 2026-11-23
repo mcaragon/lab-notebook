@@ -51,7 +51,7 @@ function stageBlock(s, i) {
   const ids = new Set(state.data.steps.map((x) => x.id));
   const rs = state.data.reagents.filter((r) => r.step_id === s.id || (i === 0 && !ids.has(r.step_id)));
   return `<div class="step-block ${multi ? "staged" : ""}" data-step="${s.id}">
-    ${multi ? `<h3 class="step-h"><span class="stage-no">${i + 1}</span>Stage ${i + 1}${s.title ? `: ${esc(s.title)}` : ""}</h3>` : ""}
+    ${multi ? `<h3 class="step-h"><span class="stage-num">${i + 1}</span>Stage ${i + 1}${s.title ? `: ${esc(s.title)}` : ""}</h3>` : ""}
     ${GROUPS.filter((g) => !multi || STAGED.has(g.key)).map((g) => groupBlock(s, g, rs.filter((r) => g.roles.includes(r.role)), state.data.stoich)).join("")}
   </div>`;
 }

@@ -33,7 +33,7 @@ function stepCard(s, i) {
   const n = state.data.steps.length;
   return `<div class="step-card" data-step="${s.id}">
     <div class="row step-title">
-      <span class="step-no">${n > 1 ? `<span class="stage-no">${i + 1}</span>Stage ${i + 1}` : "Conditions"}</span>
+      <span class="step-no">${n > 1 ? `<span class="stage-num">${i + 1}</span>Stage ${i + 1}` : "Conditions"}</span>
       ${n > 1 ? `<input class="grow" placeholder="Stage name (optional, e.g. Grignard formation)" data-sfield="title" data-key="st-${s.id}-title" value="${esc(s.title || "")}">` : ""}
       <label class="inline small">Atmosphere <input list="atmos" class="w-sm" data-sfield="atmosphere" data-key="st-${s.id}-atm" value="${esc(s.atmosphere || "")}"></label>
       ${n > 1 ? `<button class="btn icon danger" data-del-step="${s.id}" title="Delete stage ${i + 1}" aria-label="Delete stage">✕</button>` : ""}
