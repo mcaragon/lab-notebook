@@ -6,6 +6,10 @@ import { state } from "./state.js";
 let data = null;
 let editing = null;
 let lastInvite = null;
+let fb = { reports: [], counts: {} };
+let fbFilter = "active";
+const FB_STATUS = { new: "New", open: "Open", resolved: "Resolved", wontfix: "Won't fix" };
+const FB_KIND = { bug: "🐞 Bug", idea: "💡 Idea", question: "❓ Question" };
 
 const when = (v) => (v ? new Date(v).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "–");
 const day = (v) => (v ? new Date(v).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "–");
@@ -15,14 +19,52 @@ const expired = (u) => u.expires_at && Date.parse(u.expires_at) <= Date.now();
 export async function renderAdmin(app) {
   document.title = "Admin · Lab Notebook";
   if (!state.user?.is_admin) { app.innerHTML = '<div class="panel">Admins only. <a href="#/">Back</a></div>'; return; }
-  try { data = await api("GET", "/api/admin/overview"); }
-  catch (e) { app.innerHTML = `<div class="panel">Could not load: ${esc(e.message)}</div>`; return; }
+  try {
+    [data, fb] = await Promise.all([api("GET", "/api/admin/overview"), api("GET", `/api/admin/feedback?status=${fbFilter}`)]);
+  } catch (e) { app.innerHTML = `<div class="panel">Could not load: ${esc(e.message)}</div>`; return; }
   draw(app);
 }
 
 async function reload(app) {
-  data = await api("GET", "/api/admin/overview");
+  [data, fb] = await Promise.all([api("GET", "/api/admin/overview"), api("GET", `/api/admin/feedback?status=${fbFilter}`)]);
   draw(app);
+}
+
+/** A report as a pre-filled GitHub issue (opened in the admin's browser; the server sends nothing). */
+function githubUrl(r) {
+  const base = state.config?.issues_url;
+  if (!base) return null;
+  const root = base.replace(/\/issues(\/new(\/choose)?)?\/?$/, "");
+  const parts = [r.body, r.steps ? `\n**Steps**\n\n${r.steps}` : "", r.expected ? `\n**Expected**\n\n${r.expected}` : "",
+    `\n---\nPage \`${r.page || ""}\` · version ${r.version || "?"} · ${r.screen || ""} · ${r.theme || ""}\n${r.user_agent || ""}`,
+    r.has_image ? "\n_(A screenshot is attached to the report in Lab Notebook.)_" : "",
+    `\n_From an in-app report (#${r.id})._`];
+  const label = r.kind === "idea" ? "enhancement" : r.kind === "question" ? "question" : "bug";
+  return `${root}/issues/new?labels=${label}&title=${encodeURIComponent(r.title)}&body=${encodeURIComponent(parts.filter(Boolean).join("\n"))}`;
+}
+
+function feedbackPanel() {
+  const c = fb.counts || {};
+  const filters = [["active", `Needs attention (${(c.new || 0) + (c.open || 0)})`], ["new", `New (${c.new || 0})`], ["open", `Open (${c.open || 0})`],
+    ["resolved", `Resolved (${c.resolved || 0})`], ["wontfix", `Won't fix (${c.wontfix || 0})`], ["all", "All"]];
+  return `<div class="panel" id="feedback"><div class="row sec-head"><h2>Feedback</h2>${c.new ? `<span class="tag t-bad">${c.new} new</span>` : ""}
+      <span class="spacer"></span><span class="hint">Reports sent with ⚑ Report a problem. Your reply is shown to the person who sent it.</span></div>
+    <div class="row fb-filters">${filters.map(([k, v]) => `<button class="chip ${fbFilter === k ? "on" : ""}" data-fbf="${k}">${v}</button>`).join("")}</div>
+    ${fb.reports.length ? `<div class="fb-cards">${fb.reports.map((r) => `<article class="fb-card fb-${esc(r.status)}" data-fid="${r.id}">
+      <div class="row"><span class="tag">${FB_KIND[r.kind] || esc(r.kind)}</span><b class="grow">${esc(r.title)}</b>
+        <select data-fbstatus="${r.id}" aria-label="Status">${Object.entries(FB_STATUS).map(([k, v]) => `<option value="${k}" ${r.status === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+      <div class="sub">${esc(r.display_name || r.username || "deleted account")} · ${when(r.created_at)} · page <code>${esc(r.page || "")}</code> · v${esc(r.version || "?")}</div>
+      <div class="fb-text">${esc(r.body)}</div>
+      ${r.steps ? `<div class="fb-sub"><b>Steps</b><div class="fb-text">${esc(r.steps)}</div></div>` : ""}
+      ${r.expected ? `<div class="fb-sub"><b>Expected</b><div class="fb-text">${esc(r.expected)}</div></div>` : ""}
+      ${r.has_image ? `<a href="/api/feedback/${r.id}/screenshot" target="_blank" rel="noopener"><img class="fb-thumb" src="/api/feedback/${r.id}/screenshot" alt="Screenshot" loading="lazy"></a>` : ""}
+      <details class="fb-device"><summary class="sub">Device</summary><div class="sub mono">${esc(r.screen || "")} · ${esc(r.theme || "")}<br>${esc(r.user_agent || "")}</div></details>
+      <label class="field"><span>Reply (the reporter sees it under My reports)</span><textarea rows="2" data-fbreply="${r.id}">${esc(r.reply || "")}</textarea></label>
+      <div class="row"><button class="btn small primary" data-fbsave="${r.id}">Save reply</button>
+        ${githubUrl(r) ? `<a class="btn small" href="${esc(githubUrl(r))}" target="_blank" rel="noopener noreferrer" title="Opens a pre-filled GitHub issue (without the reporter's name)">Copy to GitHub ↗</a>` : ""}
+        <span class="spacer"></span><button class="btn small danger" data-fbdel="${r.id}">Delete</button></div>
+    </article>`).join("")}</div>` : '<p class="empty">No reports here.</p>'}
+  </div>`;
 }
 
 async function act(app, method, path, body, msg) {
@@ -83,6 +125,7 @@ function draw(app) {
       <div class="stat"><span class="k-l">Projects</span><b>${data.db.counts.projects}</b></div>
       <div class="stat"><span class="k-l">Database</span><b>${size(data.db.size_bytes)}</b></div>
     </div>
+    ${feedbackPanel()}
     <div class="panel"><div class="row sec-head"><h2>Accounts</h2></div>
       <div class="table-wrap"><table class="admin-table">
         <thead><tr><th>User</th><th></th><th class="num">Notebook</th><th>Last sign-in</th><th>Last change</th><th>Expires</th><th class="num">Limit</th><th></th></tr></thead>
@@ -145,7 +188,38 @@ const formData = (form) => {
   return out;
 };
 
+function bindFeedback(app) {
+  const save = async (id, body, msg) => {
+    try {
+      const d = await api("PUT", `/api/admin/feedback/${id}`, body);
+      fb.counts = d.counts;
+      if (msg) toast(msg);
+      await reload(app);
+      window.dispatchEvent(new Event("feedback-seen"));
+    } catch (e) { toast(e.message, true); }
+  };
+  $$("[data-fbf]", app).forEach((b) => (b.onclick = async () => {
+    fbFilter = b.dataset.fbf;
+    fb = await api("GET", `/api/admin/feedback?status=${fbFilter}`);
+    draw(app);
+  }));
+  $$("[data-fbstatus]", app).forEach((s) => s.addEventListener("change", () => save(s.dataset.fbstatus, { status: s.value })));
+  $$("[data-fbsave]", app).forEach((b) => (b.onclick = () => {
+    const id = b.dataset.fbsave;
+    const r = fb.reports.find((x) => x.id === Number(id));
+    const body = { reply: $(`[data-fbreply="${id}"]`, app).value };
+    if (r?.status === "new") body.status = "open";
+    save(id, body, "Reply saved.");
+  }));
+  $$("[data-fbdel]", app).forEach((b) => (b.onclick = async () => {
+    if (!confirm("Delete this report?")) return;
+    try { await api("DELETE", `/api/admin/feedback/${b.dataset.fbdel}`); await reload(app); window.dispatchEvent(new Event("feedback-seen")); }
+    catch (e) { toast(e.message, true); }
+  }));
+}
+
 function bind(app) {
+  bindFeedback(app);
   $$("[data-edit]", app).forEach((b) => (b.onclick = () => { editing = Number(b.dataset.edit); draw(app); }));
   const ef = $("#edit-form", app);
   if (ef) {

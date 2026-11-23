@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import __version__, actions, auth, db, hazards, projects, report, scheme, stoich, structures
+from . import __version__, actions, auth, db, feedback, hazards, projects, report, scheme, stoich, structures
 from .config import Settings, load_settings
 from .pubchem import PubChemClient, PubChemUnavailable, summary_to_reagent
 
@@ -225,6 +225,25 @@ class InviteIn(BaseModel):
     valid_days: int = 7                  # the link expires after this many days
 
 
+class FeedbackIn(BaseModel):
+    kind: Literal["bug", "idea", "question"] = "bug"
+    title: str
+    body: str
+    steps: Optional[str] = None
+    expected: Optional[str] = None
+    page: Optional[str] = None
+    version: Optional[str] = None
+    user_agent: Optional[str] = None
+    screen: Optional[str] = None
+    theme: Optional[str] = None
+    screenshot: Optional[str] = None  # data URL (PNG, JPEG or WebP), at most about 3 MB
+
+
+class FeedbackUpdate(BaseModel):
+    status: Optional[Literal["new", "open", "resolved", "wontfix"]] = None
+    reply: Optional[str] = None  # shown to the person who reported it; "" removes it
+
+
 class RefreshIn(BaseModel):
     fields: Optional[list[str]] = None  # None = every PubChem field
 
@@ -258,6 +277,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     client = pubchem or PubChemClient(settings.pubchem_url, settings.pubchem_timeout)
 
     accounts = auth.Auth(store, settings.session_days)
+    reports = feedback.Feedback(store)
 
     app = FastAPI(title="Lab Notebook", version=__version__,
                   description="Organic chemistry lab notebook backed by PubChem Local.")
@@ -1504,6 +1524,70 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
                            "experiments": [b for b in exps if b], "projects": projs}, indent=1, default=str)
         return Response(body, media_type="application/json", headers={
             "Content-Disposition": f'attachment; filename="lab-notebook-{u["username"]}.json"'})
+
+    # -------------------------------------------------------------- problem reports (stored here, read by admins)
+    def fb_fail(e: feedback.FeedbackError):
+        raise HTTPException(e.status, str(e))
+
+    def public_report(r: dict, admin: bool) -> dict:
+        keys = ["id", "kind", "title", "body", "steps", "expected", "page", "version", "status", "reply", "created_at",
+                "updated_at", "replied_at", "has_image"]
+        if admin:
+            keys += ["user_agent", "screen", "theme", "username", "display_name", "user_id"]
+        return {k: r.get(k) for k in keys}
+
+    @app.post("/api/feedback", status_code=201)
+    def send_feedback(body: FeedbackIn):
+        if body.screenshot and len(body.screenshot) > 4_500_000:
+            raise HTTPException(413, "The screenshot is too large (3 MB at most).")
+        try:
+            fid = reports.create(uid(), body.model_dump(exclude={"screenshot"}), body.screenshot)
+        except feedback.FeedbackError as e:
+            fb_fail(e)
+        return {"id": fid}
+
+    @app.get("/api/feedback/mine")
+    def my_feedback():
+        return {"reports": [public_report(r, False) for r in reports.mine(uid())]}
+
+    @app.get("/api/feedback/unseen")
+    def feedback_unseen():
+        """Replies the user has not seen yet, and (for admins) reports not looked at yet."""
+        out = {"replies": reports.unseen_replies(uid())}
+        if me()["role"] == "admin":
+            out["new_reports"] = reports.counts()["new"]
+        return out
+
+    @app.get("/api/feedback/{fid}/screenshot")
+    def feedback_screenshot(fid: int):
+        r = reports.get(fid)
+        if not r or (r["user_id"] != uid() and me()["role"] != "admin"):
+            raise HTTPException(404, "Not found")
+        img = reports.image(fid)
+        if not img:
+            raise HTTPException(404, "No screenshot")
+        return Response(img[1], media_type=img[0], headers={
+            "Cache-Control": "private, max-age=3600", "Content-Disposition": f'inline; filename="report-{fid}"',
+            "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"})
+
+    @app.get("/api/admin/feedback")
+    def admin_feedback(status: Optional[str] = None):
+        return {"reports": [public_report(r, True) for r in reports.inbox(status)], "counts": reports.counts()}
+
+    @app.put("/api/admin/feedback/{fid}")
+    def admin_update_feedback(fid: int, body: FeedbackUpdate):
+        if not reports.get(fid):
+            raise HTTPException(404, "Report not found")
+        try:
+            reports.update(fid, body.status, body.reply)
+        except feedback.FeedbackError as e:
+            fb_fail(e)
+        return {"report": public_report(reports.get(fid), True), "counts": reports.counts()}
+
+    @app.delete("/api/admin/feedback/{fid}", status_code=204)
+    def admin_delete_feedback(fid: int):
+        reports.delete(fid)
+        return Response(status_code=204)
 
     # -------------------------------------------------------------- frontend
     app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
