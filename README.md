@@ -40,8 +40,9 @@ PubChem database** ([PubChem Local](https://github.com/mcaragon/local_pubchem_db
   (expiry, number of experiments) and download backups.
 - **Stockroom:** an inventory of the chemicals you have on hand, one entry per bottle: supplier, grade, lot, amount
   left, price (per g or mL), location and expiry, filled in from PubChem Local; corrections and stocktakes, low-stock
-  and expiry warnings. (Linking reagent rows to bottles and costing experiments are next; see
-  [the plan](docs/stockroom-plan.md).)
+  and expiry warnings. When you add a reagent, your bottles are offered first: picking one fills in the row and links
+  it, so measured amounts come off the bottle and planned ones are held as *reserved* until the experiment is
+  completed. (Costing experiments is next; see [the plan](docs/stockroom-plan.md).)
 - **Built-in feedback:** testers report problems and ideas from inside the app (with a screenshot); admins answer
   them in a Feedback inbox.
 - **Light and night themes**, and a layout that works from a 27" monitor down to a phone.

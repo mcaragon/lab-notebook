@@ -109,6 +109,7 @@ class ReagentIn(BaseModel):
     expected_yield_pct: Optional[float] = None
     expected_ref_id: Optional[int] = None
     source_reagent_id: Optional[int] = None
+    stock_item_id: Optional[int] = None  # the stockroom container the row is drawn from (None unlinks)
     scheme_pos: Optional[Literal["auto", "above", "below", "structure", "hidden"]] = None
     grade: Optional[str] = None
     supplier: Optional[str] = None
@@ -479,7 +480,29 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         b["phases"] = db.phase_list(b["experiment"])
         b["projects"] = store.projects_of(exp_id)
         b["route"] = route_links(b, calc)
+        stock_links(b)
         return b
+
+    def stock_links(b: dict) -> None:
+        """Per reagent row: its container (``stock``) or how many containers of the compound are in stock."""
+        owner = b["experiment"]["owner_id"]
+        linked = {r["stock_item_id"] for r in b["reagents"] if r.get("stock_item_id")}
+        views = {}
+        if linked:
+            corrections, usage = stock.correction_totals(owner), stock_usage(owner)
+            for iid in linked:
+                it = stock.get(iid)
+                if it and it["owner_id"] == owner:
+                    v = stock_view(it, corrections, usage)
+                    views[iid] = {k: v.get(k) for k in ("id", "supplier", "grade", "lot", "location", "unit", "left",
+                                                        "available", "reserved", "unit_price", "status", "low")}
+        with store.conn() as c:
+            counts = {r[0]: r[1] for r in c.execute(
+                "SELECT cid, COUNT(*) FROM stock_items WHERE owner_id = ? AND status = 'in_use' AND cid IS NOT NULL "
+                "GROUP BY cid", (owner,))}
+        for r in b["reagents"]:
+            r["stock"] = views.get(r.get("stock_item_id"))
+            r["stock_count"] = counts.get(r.get("cid"), 0) if r.get("cid") else 0
 
     def route_links(b: dict, calc: dict) -> dict:
         """Where this experiment's starting materials came from and where its product went."""
@@ -771,6 +794,17 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         steps = store.list("steps", "experiment_id = ?", (exp_id,))
         if not data.get("step_id") or data["step_id"] not in {s["id"] for s in steps}:
             data["step_id"] = steps[0]["id"]
+        if data.get("stock_item_id"):  # drawn from a stockroom container: its compound data and source
+            it = need_item(data["stock_item_id"])
+            values = {k: it.get(k) for k in stockroom.CHEM + stockroom.SOURCE_FIELDS}
+            values.update({k: v for k, v in data.items() if k not in stockroom.CHEM + stockroom.SOURCE_FIELDS})
+            values["role"] = values.get("role") or "reactant"
+            if values["role"] in ("solvent", "workup") and "basis" not in data:
+                values["basis"] = "volume"
+            rid = store.add_reagent(exp_id, values)
+            out = detail(exp_id)
+            out["reagent_id"], out["warning"] = rid, None
+            return out
         if data.get("source_reagent_id"):
             src = need("reagents", data["source_reagent_id"], "Reagent")
             if src["experiment_id"] == exp_id or src["role"] != "product":
@@ -797,6 +831,9 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         current = need("reagents", rid, "Reagent")
         data = body.model_dump(exclude_unset=True)
         data.pop("query", None)
+        if data.get("stock_item_id"):  # switching to another container takes its source (supplier, lot, purity…)
+            it = need_item(data["stock_item_id"])
+            data.update({k: it.get(k) for k in stockroom.SOURCE_FIELDS})
         changed = [k for k in data if k in db.CHEM_FIELDS + ["pictograms", "hazard_statements", "extra_hazards"]
                    and data[k] != current.get(k)]
         if changed:
@@ -1597,14 +1634,44 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         return it
 
     def stock_usage(owner: int) -> dict[int, dict]:
-        """Used and reserved amount of each container (filled in by the plan integration; nothing yet)."""
-        return {}
+        """Used and reserved amount of each container, from the reagent rows drawn from it (see
+        ``stockroom.amount_for``): ``{item_id: {used, reserved, uses: [...], unconverted}}``."""
+        with store.conn() as c:
+            rows = c.execute("SELECT r.id, r.experiment_id, r.stock_item_id FROM reagents r JOIN experiments e "
+                             "ON e.id = r.experiment_id WHERE e.owner_id = ? AND r.stock_item_id IS NOT NULL",
+                             (owner,)).fetchall()
+        if not rows:
+            return {}
+        items = {it["id"]: it for it in stock.items(owner)}
+        out: dict[int, dict] = {}
+        for eid in sorted({r["experiment_id"] for r in rows}):
+            b = store.bundle(eid)
+            calc = compute(b)
+            log_use = actions.usage(b["entries"])
+            completed = b["experiment"].get("status") == "completed"
+            for r in b["reagents"]:
+                it = items.get(r.get("stock_item_id"))
+                if not it:
+                    continue
+                a = stockroom.amount_for(it, r, calc["rows"].get(r["id"], {}), log_use.get(r["id"], {}), completed)
+                u = out.setdefault(it["id"], {"used": 0.0, "reserved": 0.0, "uses": [], "unconverted": 0})
+                if a is None:
+                    continue
+                if a["amount"] is None:
+                    u["unconverted"] += 1
+                else:
+                    u[a["kind"]] += a["amount"]
+                u["uses"].append({"experiment_id": eid, "experiment": b["experiment"]["title"], "reagent_id": r["id"],
+                                  "status": b["experiment"]["status"], "date": b["experiment"].get("date"),
+                                  "kind": a["kind"], "amount": a["amount"]})
+        return out
 
     def stock_view(it: dict, corrections: dict, usage: dict) -> dict:
         u = usage.get(it["id"], {})
         out = {k: v for k, v in it.items() if k != "owner_id"}
         out.update(stockroom.derive(it, corrections.get(it["id"], 0.0), u.get("used", 0.0), u.get("reserved", 0.0)))
         out["uses"] = u.get("uses", [])
+        out["unconverted"] = u.get("unconverted", 0)
         return out
 
     def stock_list(owner: int) -> list[dict]:
@@ -1628,6 +1695,22 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
     def list_stock():
         items = stock_list(uid())
         return {"items": items, "summary": stock_summary(items), "currency": me().get("currency") or "USD"}
+
+    @app.get("/api/stockroom/match")
+    def match_stock(q: str = "", cid: Optional[int] = None, limit: int = Query(8, ge=1, le=30)):
+        """Containers in use matching a name (or a compound), for the reagent autocomplete and the container picker;
+        the ones used most recently first."""
+        term = q.strip().lower()
+        with store.conn() as c:
+            recent = {r[0]: r[1] for r in c.execute(
+                "SELECT stock_item_id, MAX(id) FROM reagents WHERE stock_item_id IS NOT NULL GROUP BY stock_item_id")}
+        items = [i for i in stock_list(uid()) if i["status"] == "in_use"
+                 and ((cid and i.get("cid") == cid) or (term and any(term in (i.get(k) or "").lower()
+                                                                     for k in ("name", "label", "cas", "formula"))))]
+        items.sort(key=lambda i: (-(recent.get(i["id"]) or 0), (i.get("label") or i["name"]).lower(), i["id"]))
+        keep = ("id", "cid", "name", "label", "cas", "formula", "supplier", "grade", "lot", "purity", "form",
+                "concentration_m", "location", "unit", "left", "available", "unit_price", "low", "expired")
+        return {"items": [{k: i.get(k) for k in keep} for i in items[:limit]], "currency": me().get("currency") or "USD"}
 
     @app.post("/api/stockroom", status_code=201)
     def add_stock(body: StockIn):

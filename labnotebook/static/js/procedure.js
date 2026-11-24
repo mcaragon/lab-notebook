@@ -101,7 +101,7 @@ function clRow(r, step) {
   const dev = c.deviation_pct;
   return `<div class="cl-row role-${esc(r.role)} ${r.actual_value != null ? "measured" : ""}">
     <span class="cl-check" aria-hidden="true">${r.actual_value != null ? "✓" : "○"}</span>
-    <span class="cl-name">${esc(r.name)} ${step}</span>
+    <span class="cl-name">${esc(r.name)} ${step}${r.stock ? `<span class="cl-stock">📦 ${esc(r.stock.supplier || "stockroom")}${r.stock.lot ? ` · lot ${esc(r.stock.lot)}` : ""}${r.stock.location ? ` · ${esc(r.stock.location)}` : ""}</span>` : ""}</span>
     <span class="cl-plan">${plannedText(r)}</span>
     <span class="cl-act"><span class="act-in"><input class="amt entered" inputmode="decimal" data-cl-actual="${r.id}" data-unit="${unit}" data-key="cl-${r.id}"
       value="${r.actual_value == null ? "" : esc(r.actual_value)}" placeholder="actual" aria-label="Actual amount of ${esc(r.name)}">

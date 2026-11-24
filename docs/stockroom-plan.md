@@ -38,7 +38,7 @@ Derived, never stored:
 
 Each step is usable on its own and ships as its own pull request.
 
-### 1. Stockroom basics
+### 1. Stockroom basics ✅ (v0.9)
 
 - Schema v5: containers, corrections, the reagent link column, the account currency.
 - Stockroom page (sidebar → 📦 Stockroom):
@@ -50,7 +50,7 @@ Each step is usable on its own and ships as its own pull request.
 - Container details: edit everything, record corrections, mark empty / disposed, delete; history of corrections.
 - Currency per account.
 
-### 2. Plan integration
+### 2. Plan integration ✅ (v0.10)
 
 - Adding a reagent lists matching **containers first** (supplier, grade, lot, amount left, price), then PubChem
   results. Picking a container fills the row (compound data, supplier, grade, lot, purity) and links it.

@@ -96,13 +96,60 @@ function compoundCell(r, st) {
     ${form ? `<span class="badge">${esc(form)}</span>` : ""}
     ${c.is_limiting ? '<span class="badge lim">limiting</span>' : ""}
     ${isRef && r.role !== "product" && !["solvent", "workup"].includes(r.role) ? '<span class="badge ref" title="Equivalents are relative to this reagent">1 equiv ref.</span>' : ""}
-    ${sourceBadge(r)}
+    ${sourceBadge(r)}${stockChip(r)}
     <div class="sub">${sub}</div>
     ${prov ? `<div class="sub">${esc(prov)}</div>` : ""}
     ${r.notes ? `<div class="sub note">${esc(r.notes)}</div>` : ""}
     ${Object.keys(r.usage || {}).length && ["solvent", "workup"].includes(r.role) ? `<div class="sub">Used (log): ${Object.entries(r.usage).map(([u, v]) => `${fmt(v)} ${u}`).join(", ")}</div>` : ""}
     ${(c.warnings || []).length ? `<div class="warnings">⚠ ${c.warnings.map(esc).join(" ")}</div>` : ""}
   </div>`;
+}
+
+// ------------------------------------------------------------------------------------------- stockroom link
+const money = (v) => {
+  if (v == null) return "";
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: state.user?.currency || "USD",
+      maximumFractionDigits: v !== 0 && Math.abs(v) < 1 ? 4 : 2 }).format(v);
+  } catch { return v.toFixed(2); }
+};
+const stockLine = (i) => [i.supplier || "unknown supplier", i.grade, i.purity ? `${fmt(i.purity)}%` : "", i.lot ? `lot ${i.lot}` : "",
+  i.left != null ? `${fmt(i.left, 4)} ${i.unit} left` : "", i.unit_price != null ? `${money(i.unit_price)}/${i.unit}` : "", i.location]
+  .filter(Boolean).join(" · ");
+
+/** The container a row is drawn from, or a hint that the compound is in the stockroom. */
+function stockChip(r) {
+  if (r.role === "product") return "";
+  if (r.stock) {
+    const s = r.stock;
+    return `<button class="badge stock ${s.low ? "low" : ""}" data-stock="${r.id}" title="Drawn from: ${esc(stockLine(s))}. Click to change.">📦 ${esc(s.supplier || "stockroom")}${s.lot ? ` · ${esc(s.lot)}` : ""}${s.left != null ? ` · ${esc(fmt(s.left, 3))} ${esc(s.unit)} left` : ""}</button>`;
+  }
+  return r.stock_count ? `<button class="badge stock add" data-stock="${r.id}" title="Pick the container this comes from">📦 in stock (${r.stock_count})</button>` : "";
+}
+
+async function openStockPicker(btn) {
+  $$(".stock-pick").forEach((x) => x.remove());
+  const r = state.data.reagents.find((x) => x.id === Number(btn.dataset.stock));
+  const params = new URLSearchParams({ q: r.name || "", limit: "12" });
+  if (r.cid) params.set("cid", r.cid);
+  let items = [];
+  try { items = (await api("GET", `/api/stockroom/match?${params}`)).items; } catch (e) { toast(e.message, true); return; }
+  const box = document.createElement("div");
+  box.className = "stock-pick menu-list";
+  box.innerHTML = `${items.length ? items.map((i) => `<button data-pick="${i.id}" class="${r.stock_item_id === i.id ? "on" : ""}">
+      <b>${esc(i.label || i.name)}</b><span class="sub">${esc(stockLine(i))}</span></button>`).join("")
+      : '<span class="menu-note">No container of this compound in use.</span>'}
+    ${r.stock_item_id ? '<button data-pick="">Not from the stockroom (unlink)</button>' : ""}
+    <a href="#/stockroom" class="menu-note">Open the stockroom ↗</a>`;
+  btn.insertAdjacentElement("afterend", box);
+  const close = (e) => { if (!box.contains(e.target) && e.target !== btn) { box.remove(); document.removeEventListener("mousedown", close); } };
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
+  $$("[data-pick]", box).forEach((b) => (b.onclick = () => {
+    box.remove();
+    const id = b.dataset.pick ? Number(b.dataset.pick) : null;
+    if (id === r.stock_item_id) return;
+    put(r.id, { stock_item_id: id });
+  }));
 }
 
 function sourceBadge(r) {
@@ -291,6 +338,7 @@ const put = (rid, body) => mutate("PUT", `/api/reagents/${rid}`, body).catch(() 
 
 function bind(root) {
   $$(".add-q", root).forEach(setupAdd);
+  $$("[data-stock]", root).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); openStockPicker(b); }));
   $$("[data-toggle]", root).forEach((b) => (b.onclick = () => {
     const id = Number(b.dataset.toggle);
     state.open.has(id) ? state.open.delete(id) : state.open.add(id);
@@ -374,6 +422,14 @@ function setupAdd(input) {
           sub: `product of ${p.experiment}${p.remaining_g != null ? ` · ${fmt(p.remaining_g)} g left` : ""}` }));
       } catch { /* ignore */ }
     }
+    // containers in the stockroom come first: picking one fills the row and links it
+    let stockItems = [];
+    if (role !== "product") {
+      try {
+        stockItems = (await api("GET", `/api/stockroom/match?q=${encodeURIComponent(q)}&limit=6`)).items
+          .map((i) => ({ label: `📦 ${i.label || i.name}`, sub: stockLine(i), stock: i.id }));
+      } catch { /* ignore */ }
+    }
     let remote = [];
     try {
       const res = await api("GET", `/api/pubchem/autocomplete?q=${encodeURIComponent(q)}&limit=8`);
@@ -381,7 +437,7 @@ function setupAdd(input) {
       const tag = parsed.concentration_m ? ` (${parsed.concentration_m} M solution)` : parsed.wt_percent ? ` (${parsed.wt_percent} wt%)` : "";
       remote = res.suggestions.map((s) => ({ label: s.name + tag, sub: `CID ${s.cid}`, cid: s.cid, parsed }));
     } catch { /* PubChem Local offline: typed names still work */ }
-    return [...local, ...remote];
+    return [...stockItems, ...local, ...remote];
   }, (item) => { chosen = item; add(); }, { minChars: 2 });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
   input.addEventListener("input", () => { chosen = null; });
@@ -390,7 +446,8 @@ function setupAdd(input) {
     if (!q && !chosen) return;
     ac.cancel();
     let body;
-    if (chosen?.carry) body = { source_reagent_id: chosen.carry, step_id: stepId };
+    if (chosen?.stock) body = { stock_item_id: chosen.stock, role, step_id: stepId };
+    else if (chosen?.carry) body = { source_reagent_id: chosen.carry, step_id: stepId };
     else if (chosen?.cid) body = { cid: chosen.cid, role, step_id: stepId, ...(chosen.parsed || {}) };
     else body = { query: q, role, step_id: stepId };
     if (role === "reagent" && /\b(cat\.?|catalyst)\b/i.test(q)) body.role = "catalyst";
