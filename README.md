@@ -38,6 +38,10 @@ PubChem database** ([PubChem Local](https://github.com/mcaragon/local_pubchem_db
   next to the log, yields, references (PubChem citations added automatically). Project reports cover a whole route.
 - **Accounts:** everyone gets a private notebook. Admins invite people with one-time links, can set demo limits
   (expiry, number of experiments) and download backups.
+- **Stockroom:** an inventory of the chemicals you have on hand, one entry per bottle: supplier, grade, lot, amount
+  left, price (per g or mL), location and expiry, filled in from PubChem Local; corrections and stocktakes, low-stock
+  and expiry warnings. (Linking reagent rows to bottles and costing experiments are next; see
+  [the plan](docs/stockroom-plan.md).)
 - **Built-in feedback:** testers report problems and ideas from inside the app (with a screenshot); admins answer
   them in a Feedback inbox.
 - **Light and night themes**, and a layout that works from a 27" monitor down to a phone.
@@ -289,6 +293,7 @@ Debian/Ubuntu). Without it, PDF export returns HTTP 501 and the other formats st
 | --- | --- |
 | `labnotebook/app.py` | FastAPI app: JSON API, access control, admin routes, PubChem Local proxy, report downloads, frontend |
 | `labnotebook/auth.py` | Accounts: password hashing, sessions, invites, sign-in throttling |
+| `labnotebook/stockroom.py` | Stockroom: containers, amounts and prices, corrections |
 | `labnotebook/feedback.py` | Problem reports sent from the app (stored in the notebook, read in Admin → Feedback) |
 | `labnotebook/stoich.py` | Stoichiometry: planned/actual amounts, limiting reagent, yields (pure functions) |
 | `labnotebook/actions.py` | Log actions: fields and the sentences they produce |

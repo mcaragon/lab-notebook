@@ -1,5 +1,5 @@
 /* Lab Notebook frontend: vanilla JS modules, no build step.
-   Routes: #/ (dashboard), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/project/<id>, #/admin,
+   Routes: #/ (dashboard), #/exp/<id>[/<tab>] with tabs plan | bench | results | report, #/project/<id>, #/stockroom, #/admin,
    #/invite/<token> (sign up). Everything needs a signed-in account; each account sees only its own notebook. */
 import { $, $$, api, esc, toast } from "./util.js";
 import { state, setData, expId, addRenderer, refresh, sigOf } from "./state.js";
@@ -15,6 +15,7 @@ import { renderGlance, renderHazards, renderRoute } from "./widgets.js";
 import { initTheme } from "./theme.js";
 import { renderLogin, renderSetup, renderInvite } from "./login.js";
 import { renderAdmin } from "./admin.js";
+import { renderStockroom } from "./stockroom.js";
 import { initResizers, resizer } from "./resize.js";
 
 const app = $("#app");
@@ -73,6 +74,7 @@ async function route() {
     document.body.classList.remove("running");
     if ((parts[0] === "project" || parts[0] === "seq") && parts[1]) renderProject(app, Number(parts[1]));
     else if (parts[0] === "admin") renderAdmin(app);
+    else if (parts[0] === "stockroom") renderStockroom(app);
     else renderHome();
   }
 }

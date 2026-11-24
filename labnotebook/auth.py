@@ -125,6 +125,7 @@ class Auth:
     def public(u: dict) -> dict:
         return {k: u.get(k) for k in ("id", "username", "display_name", "role", "active", "demo", "expires_at",
                                       "max_experiments", "created_at", "last_login_at", "last_seen_at")} | {
+            "currency": u.get("currency") or "USD",
             "active": bool(u.get("active")), "demo": bool(u.get("demo")), "is_admin": u.get("role") == "admin"}
 
     @staticmethod

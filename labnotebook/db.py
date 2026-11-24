@@ -11,7 +11,7 @@ graph, so routes can branch (one product used in several experiments) and conver
 Accounts (schema version 4): every experiment and project has an owner (``owner_id``); users only see their own.
 Users, sessions, invites and sign-in attempts are stored here too (see ``auth.py``).
 
-Schema version 4; older databases are migrated on open (v2 multi-step experiments are split into one experiment per
+Schema version 5 (the stockroom: see ``stockroom.py``); older databases are migrated on open (v2 multi-step experiments are split into one experiment per
 step, linked through their intermediates and grouped into a project).
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Free-text sections of an experiment (key, heading)
 SECTIONS = [
@@ -57,7 +57,7 @@ FIELDS = {
                  "sources", "extra_hazards", "hazard_notes", "label", "role", "form", "purity", "concentration_m", "wt_percent", "solution_density",
                  "coefficient", "basis", "basis_value", "is_reference", "actual_basis", "actual_value",
                  "actual_mass_g", "crude_mass_g", "expected_yield_pct", "expected_ref_id", "source_reagent_id",
-                 "scheme_pos", "grade", "supplier", "lot", "notes"],
+                 "scheme_pos", "grade", "supplier", "lot", "notes", "stock_item_id"],
     "procedure": ["step_id", "phase", "position", "text", "notes", "done_at"],
     "entries": ["ts", "elapsed_s", "kind", "action", "text", "value", "unit", "data", "custom_text", "step_id",
                 "procedure_id", "timer_id"],
@@ -65,6 +65,11 @@ FIELDS = {
                "stop_entry_id", "procedure_id", "reagent_id"],
     "refs": ["position", "authors", "title", "source", "year", "volume", "pages", "doi", "url", "text"],
     "projects": ["title", "notes", "scheme_style", "owner_id"],
+    "stock_items": ["cid", "pubchem_url", *CHEM_FIELDS, "label", "pictograms", "hazard_statements", "sources",
+                    "extra_hazards", "hazard_notes", "form", "purity", "concentration_m", "wt_percent",
+                    "solution_density", "supplier", "catalog_no", "grade", "lot", "quantity", "unit", "price",
+                    "location", "received_at", "opened_at", "expires_at", "low_threshold", "status", "notes",
+                    "updated_at"],
     "project_items": ["position"],
 }
 BOOL_FIELDS = {"is_reference", "custom_text"}
@@ -226,6 +231,30 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     reason TEXT
 );
 CREATE INDEX IF NOT EXISTS login_attempts_ts ON login_attempts(ts);
+CREATE TABLE IF NOT EXISTS stock_items (
+    id INTEGER PRIMARY KEY,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cid INTEGER, pubchem_url TEXT,
+    name TEXT NOT NULL DEFAULT '', iupac_name TEXT, cas TEXT, formula TEXT, smiles TEXT, label TEXT,
+    mw REAL, density REAL, bp REAL, mp REAL, flash_point REAL, refractive_index REAL,
+    signal_word TEXT, pictograms TEXT, hazard_statements TEXT, sources TEXT, extra_hazards TEXT, hazard_notes TEXT,
+    form TEXT NOT NULL DEFAULT 'neat', purity REAL, concentration_m REAL, wt_percent REAL, solution_density REAL,
+    supplier TEXT, catalog_no TEXT, grade TEXT, lot TEXT,
+    quantity REAL, unit TEXT NOT NULL DEFAULT 'g', price REAL,
+    location TEXT, received_at TEXT, opened_at TEXT, expires_at TEXT, low_threshold REAL,
+    status TEXT NOT NULL DEFAULT 'in_use', notes TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS stock_items_owner ON stock_items(owner_id, cid);
+CREATE TABLE IF NOT EXISTS stock_adjustments (
+    id INTEGER PRIMARY KEY,
+    item_id INTEGER NOT NULL REFERENCES stock_items(id) ON DELETE CASCADE,
+    ts TEXT NOT NULL,
+    delta REAL NOT NULL,
+    reason TEXT,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS stock_adjustments_item ON stock_adjustments(item_id, ts);
 CREATE TABLE IF NOT EXISTS project_materials (
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     key TEXT NOT NULL,
@@ -475,6 +504,13 @@ class Store:
                     if "owner_id" not in [r[1] for r in c.execute(f"PRAGMA table_info({table})")]:
                         c.execute(f"ALTER TABLE {table} ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE")
                 c.executescript(_V4)
+            # v5: the stockroom (tables in stockroom.py); a reagent row can be drawn from a container
+            cols = {t: [r[1] for r in c.execute(f"PRAGMA table_info({t})")] for t in ("reagents", "users")}
+            if "stock_item_id" not in cols["reagents"]:
+                c.execute("ALTER TABLE reagents ADD COLUMN stock_item_id INTEGER REFERENCES stock_items(id) "
+                          "ON DELETE SET NULL")
+            if "currency" not in cols["users"]:
+                c.execute("ALTER TABLE users ADD COLUMN currency TEXT")
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     @staticmethod

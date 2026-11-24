@@ -81,6 +81,7 @@ function draw() {
       <button class="sb-item" id="sb-new-exp"><span class="ico">＋</span><span class="sb-title">New experiment</span></button>
       <button class="sb-item" id="sb-new-seq"><span class="ico">⇢</span><span class="sb-title">New project</span></button>
       <a class="sb-item" href="#/" data-href="#/"><span class="ico">▦</span><span class="sb-title">Dashboard</span></a>
+      <a class="sb-item" href="#/stockroom" data-href="#/stockroom"><span class="ico">⛁</span><span class="sb-title">Stockroom</span></a>
       <label class="sb-item sb-searchrow"><span class="ico">⌕</span><input id="sb-search" placeholder="Search" value="${esc(filter)}" aria-label="Search experiments and projects"></label>
     </div>
     <nav class="sb-scroll">

@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import __version__, actions, auth, db, feedback, hazards, projects, report, scheme, stoich, structures
+from . import __version__, actions, auth, db, feedback, hazards, projects, report, scheme, stockroom, stoich, structures
 from .config import Settings, load_settings
 from .pubchem import PubChemClient, PubChemUnavailable, summary_to_reagent
 
@@ -225,6 +225,51 @@ class InviteIn(BaseModel):
     valid_days: int = 7                  # the link expires after this many days
 
 
+class StockIn(BaseModel):
+    query: Optional[str] = None  # create only: identifier to resolve with PubChem Local
+    cid: Optional[int] = None
+    name: Optional[str] = None
+    label: Optional[str] = None
+    cas: Optional[str] = None
+    formula: Optional[str] = None
+    smiles: Optional[str] = None
+    mw: Optional[float] = None
+    density: Optional[float] = None
+    bp: Optional[float] = None
+    mp: Optional[float] = None
+    flash_point: Optional[float] = None
+    hazard_notes: Optional[str] = None
+    form: Optional[Literal["neat", "solution", "wt"]] = None
+    purity: Optional[float] = None
+    concentration_m: Optional[float] = None
+    wt_percent: Optional[float] = None
+    solution_density: Optional[float] = None
+    supplier: Optional[str] = None
+    catalog_no: Optional[str] = None
+    grade: Optional[str] = None
+    lot: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[Literal["g", "mL"]] = None
+    price: Optional[float] = None
+    location: Optional[str] = None
+    received_at: Optional[str] = None
+    opened_at: Optional[str] = None
+    expires_at: Optional[str] = None
+    low_threshold: Optional[float] = None
+    status: Optional[Literal["in_use", "empty", "disposed"]] = None
+    notes: Optional[str] = None
+
+
+class AdjustIn(BaseModel):
+    delta: Optional[float] = None   # signed change in the container's unit
+    actual: Optional[float] = None  # or: the amount actually found (stocktake)
+    reason: Optional[str] = None
+
+
+class AccountIn(BaseModel):
+    currency: Optional[str] = None
+
+
 class FeedbackIn(BaseModel):
     kind: Literal["bug", "idea", "question"] = "bug"
     title: str
@@ -278,6 +323,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
 
     accounts = auth.Auth(store, settings.session_days)
     reports = feedback.Feedback(store)
+    stock = stockroom.Stockroom(store)
 
     app = FastAPI(title="Lab Notebook", version=__version__,
                   description="Organic chemistry lab notebook backed by PubChem Local.")
@@ -625,6 +671,35 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             return {}
         return {"extra_hazards": extra} if extra else {}
 
+    def chem_lookup(data: dict) -> tuple[dict, Optional[str]]:
+        """Compound data for a new reagent row or stockroom container: from PubChem Local by ``cid`` or by a ``query``
+        (name, CAS, formula, SMILES, or e.g. "2.5 M n-BuLi in hexanes"), then the values the user gave. Returns the
+        values and a warning when nothing was found."""
+        query = (data.pop("query", None) or "").strip()
+        if query and "form" not in data:
+            parsed = parse_reagent_query(query)
+            query = parsed.pop("query")
+            for k, v in parsed.items():
+                data.setdefault(k, v)
+        warning, found = None, None
+        if data.get("cid") or query:
+            try:
+                found = client.lab(data["cid"]) if data.get("cid") else client.lookup(query)
+                if not found:
+                    warning = f"“{query or data.get('cid')}” was not found in PubChem Local; enter its data manually."
+            except PubChemUnavailable as e:
+                warning = f"PubChem Local is unavailable ({e}); enter the data manually."
+        values = summary_to_reagent(found) if found else {"sources": {}}
+        if found and found.get("cid"):
+            values.update(_extra_hazards(found["cid"]))
+        user_chem = {k: v for k, v in data.items() if k in db.CHEM_FIELDS}
+        values.update(data)
+        for k in user_chem:
+            values["sources"][k] = "manual"
+        if not values.get("name"):
+            values["name"] = query or "Unnamed"
+        return values, warning
+
     def remaining_of(product: dict) -> Optional[float]:
         """Isolated (else crude) mass of a product minus what other experiments took (planned or measured)."""
         mass = product.get("actual_mass_g") or product.get("crude_mass_g")
@@ -707,29 +782,7 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             out = detail(exp_id)
             out["reagent_id"], out["warning"] = rid, None
             return out
-        query = (data.pop("query", None) or "").strip()
-        if query and "form" not in data:
-            parsed = parse_reagent_query(query)
-            query = parsed.pop("query")
-            for k, v in parsed.items():
-                data.setdefault(k, v)
-        warning, found = None, None
-        if data.get("cid") or query:
-            try:
-                found = client.lab(data["cid"]) if data.get("cid") else client.lookup(query)
-                if not found:
-                    warning = f"“{query or data.get('cid')}” was not found in PubChem Local; enter its data manually."
-            except PubChemUnavailable as e:
-                warning = f"PubChem Local is unavailable ({e}); enter the data manually."
-        values = summary_to_reagent(found) if found else {"sources": {}}
-        if found and found.get("cid"):
-            values.update(_extra_hazards(found["cid"]))
-        user_chem = {k: v for k, v in data.items() if k in db.CHEM_FIELDS}
-        values.update(data)
-        for k in user_chem:
-            values["sources"][k] = "manual"
-        if not values.get("name"):
-            values["name"] = query or "Unnamed"
+        values, warning = chem_lookup(data)
         role = values.get("role") or "reactant"
         values["role"] = role
         if role in ("solvent", "workup") and "basis" not in data:
@@ -1524,6 +1577,131 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
                            "experiments": [b for b in exps if b], "projects": projs}, indent=1, default=str)
         return Response(body, media_type="application/json", headers={
             "Content-Disposition": f'attachment; filename="lab-notebook-{u["username"]}.json"'})
+
+    # -------------------------------------------------------------- account settings
+    @app.put("/api/account")
+    def update_account(body: AccountIn):
+        if body.currency is not None:
+            cur = body.currency.strip().upper()
+            if cur not in stockroom.CURRENCIES:
+                raise HTTPException(422, "Unknown currency.")
+            with store.conn() as c:
+                c.execute("UPDATE users SET currency = ? WHERE id = ?", (cur, uid()))
+        return {"user": accounts.public(accounts.get_user(uid()))}
+
+    # -------------------------------------------------------------- stockroom (one per account)
+    def need_item(item_id: int) -> dict:
+        it = stock.get(item_id)
+        if not it or it["owner_id"] != uid():
+            raise HTTPException(404, "Container not found")
+        return it
+
+    def stock_usage(owner: int) -> dict[int, dict]:
+        """Used and reserved amount of each container (filled in by the plan integration; nothing yet)."""
+        return {}
+
+    def stock_view(it: dict, corrections: dict, usage: dict) -> dict:
+        u = usage.get(it["id"], {})
+        out = {k: v for k, v in it.items() if k != "owner_id"}
+        out.update(stockroom.derive(it, corrections.get(it["id"], 0.0), u.get("used", 0.0), u.get("reserved", 0.0)))
+        out["uses"] = u.get("uses", [])
+        return out
+
+    def stock_list(owner: int) -> list[dict]:
+        corrections, usage = stock.correction_totals(owner), stock_usage(owner)
+        return [stock_view(it, corrections, usage) for it in stock.items(owner)]
+
+    def stock_summary(items: list[dict]) -> dict:
+        active = [i for i in items if i["status"] == "in_use"]
+        values = [i["value_left"] for i in active if i["value_left"] is not None]
+        return {"containers": len(active), "compounds": len({(i.get("cid") or i["name"].lower()) for i in active}),
+                "value": sum(values) if values else 0.0, "unpriced": sum(1 for i in active if i["unit_price"] is None),
+                "low": sum(1 for i in active if i["low"]), "expiring": sum(1 for i in active if i["expiring"]),
+                "expired": sum(1 for i in active if i["expired"])}
+
+    def stock_detail(item_id: int) -> dict:
+        it = need_item(item_id)
+        view = stock_view(it, stock.correction_totals(uid()), stock_usage(uid()))
+        return {"item": view, "adjustments": stock.adjustments(item_id)}
+
+    @app.get("/api/stockroom")
+    def list_stock():
+        items = stock_list(uid())
+        return {"items": items, "summary": stock_summary(items), "currency": me().get("currency") or "USD"}
+
+    @app.post("/api/stockroom", status_code=201)
+    def add_stock(body: StockIn):
+        data = body.model_dump(exclude_unset=True)
+        values, warning = chem_lookup(data)
+        values.setdefault("received_at", db.now()[:10])
+        iid = stock.create(uid(), values)
+        out = stock_detail(iid)
+        out["warning"] = warning
+        return out
+
+    @app.get("/api/stockroom/{item_id}")
+    def get_stock(item_id: int):
+        return stock_detail(item_id)
+
+    @app.put("/api/stockroom/{item_id}")
+    def update_stock(item_id: int, body: StockIn):
+        current = need_item(item_id)
+        data = body.model_dump(exclude_unset=True)
+        data.pop("query", None)
+        changed = [k for k in data if k in db.CHEM_FIELDS and data[k] != current.get(k)]
+        if changed:
+            sources = dict(current.get("sources") or {})
+            for k in changed:
+                sources[k] = "manual"
+            data["sources"] = sources
+        for k in ("quantity", "price", "low_threshold"):
+            if k in data and data[k] is not None and data[k] < 0:
+                raise HTTPException(422, "Amounts and prices cannot be negative.")
+        try:
+            stock.update(item_id, data)
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        return stock_detail(item_id)
+
+    @app.delete("/api/stockroom/{item_id}", status_code=204)
+    def delete_stock(item_id: int):
+        need_item(item_id)
+        stock.delete(item_id)
+        return Response(status_code=204)
+
+    @app.post("/api/stockroom/{item_id}/duplicate", status_code=201)
+    def duplicate_stock(item_id: int):
+        need_item(item_id)
+        return stock_detail(stock.duplicate(item_id))
+
+    @app.post("/api/stockroom/{item_id}/adjust")
+    def adjust_stock(item_id: int, body: AdjustIn):
+        need_item(item_id)
+        if body.actual is not None:
+            if body.actual < 0:
+                raise HTTPException(422, "Enter the amount found (0 or more).")
+            left = stock_detail(item_id)["item"]["left"] or 0.0
+            stock.set_to(item_id, left, body.actual, body.reason or "Stocktake", uid())
+        elif body.delta:
+            stock.adjust(item_id, body.delta, body.reason or "", uid())
+        else:
+            raise HTTPException(422, "Enter a change or the amount found.")
+        return stock_detail(item_id)
+
+    @app.delete("/api/stockroom/{item_id}/adjustments/{adj_id}")
+    def delete_stock_adjustment(item_id: int, adj_id: int):
+        need_item(item_id)
+        stock.delete_adjustment(item_id, adj_id)
+        return stock_detail(item_id)
+
+    @app.get("/api/stockroom/{item_id}/structure.svg")
+    def stock_structure(item_id: int, width: int = Query(300, ge=40, le=1200), height: int = Query(240, ge=40, le=1200),
+                        theme: Literal["light", "dark"] = "light"):
+        it = need_item(item_id)
+        img = structures.structure(client, it.get("cid"), it.get("smiles"), width, height, theme)
+        if not img:
+            raise HTTPException(404, "No structure available")
+        return Response(img[0], media_type=img[1], headers={"Cache-Control": "private, max-age=3600"})
 
     # -------------------------------------------------------------- problem reports (stored here, read by admins)
     def fb_fail(e: feedback.FeedbackError):

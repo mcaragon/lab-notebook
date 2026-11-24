@@ -1,2 +1,2 @@
 """Lab Notebook: organic chemistry lab notebook backed by PubChem Local."""
-__version__ = "0.8.0"
+__version__ = "0.9.0"
