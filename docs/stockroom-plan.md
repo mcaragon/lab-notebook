@@ -59,7 +59,7 @@ Each step is usable on its own and ships as its own pull request.
   reservations.
 - Container history lists the experiments that drew from it, with amounts.
 
-### 3. Costs
+### 3. Costs ✅ (v0.11)
 
 - Input cost = amount × container price per unit (measured amount, else planned, marked *estimated*). Solvent and
   workup use comes from the log totals (e.g. "Extracted with DCM 3 × 25 mL") when they are larger than the planned

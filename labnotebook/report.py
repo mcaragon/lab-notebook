@@ -15,7 +15,7 @@ from typing import Any, Callable, Optional
 import markdown as md
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from . import actions, db, hazards, projects, scheme
+from . import actions, costs as costs_mod, db, hazards, projects, scheme
 from .pubchem import PubChemClient, PubChemUnavailable
 from .structures import structure
 
@@ -200,6 +200,7 @@ def nfpa_svg(n: Optional[dict], size_mm: float = 7) -> str:
 
 
 _env.globals["nfpa_svg"] = nfpa_svg
+_env.filters["money"] = lambda v, cur="USD": costs_mod.money(v, cur)
 
 
 def _scheme_html(sch: dict, img_src: Callable[[dict, int, int], Optional[str]]) -> str:
@@ -404,7 +405,8 @@ def project_numbers(g: dict, bundles: list[dict], calcs: list[dict]) -> tuple[di
 
 
 def build_project_context(proj: dict, bundles: list[dict], calcs: list[dict], g: dict, settings: Any = None,
-                          client: Optional[PubChemClient] = None, leaf: Optional[int] = None) -> dict:
+                          client: Optional[PubChemClient] = None, leaf: Optional[int] = None,
+                          currency: Optional[str] = None) -> dict:
     """A project report: route map and summary, then one chapter per experiment in route order.
 
     With ``leaf``, only the route to that experiment (it and everything that feeds it), with its linear scheme."""
@@ -439,8 +441,8 @@ def build_project_context(proj: dict, bundles: list[dict], calcs: list[dict], g:
     target = node[leaf]["title"] if leaf is not None else None
     return {
         "proj": proj, "title": proj["title"] + (f" — route to {target}" if target else ""), "leaf": target,
-        "chapters": chapters, "summary": summary, "materials": materials,
-        "map_svg": projects.route_svg(g, img, numbers, link=False, only=set(ids), inline_css=True)
+        "chapters": chapters, "summary": summary, "materials": materials, "currency": currency,
+        "map_svg": projects.route_svg(g, img, numbers, link=False, only=set(ids), inline_css=True, currency=currency)
         if len(ids) > 1 else "",
         "scheme": sch, "scheme_html": _scheme_html(sch, img) if sch and not sch["empty"] else "",
         "overall_yield": node[chain[-1]]["overall_yield"] if len(chain) > 1 else None,
@@ -580,6 +582,32 @@ def _md_yield(ctx: dict) -> list[str]:
                   ["l", "r", "r", "r", "r", "r", "r"], body)
 
 
+def _md_cost(c: dict, cur: str) -> list[str]:
+    m = lambda v: costs_mod.money(v, cur)  # noqa: E731
+    body = []
+    for x in c["inputs"]:
+        src = ""
+        if x["source"] and x["source"]["kind"] == "stock":
+            src = ", ".join(v for v in (x["source"].get("supplier"), f"lot {x['source']['lot']}" if x["source"].get("lot") else "") if v)
+        elif x["source"]:
+            src = "from an earlier step"
+        amount = f"{fmt(x['amount'])} {x['unit']}" if x["amount"] is not None else ""
+        body.append([x["name"], src, amount + (" *" if x["estimated"] and x["cost"] is not None else ""),
+                     f"{m(x['unit_price'])}/{x['unit']}" if x["unit_price"] is not None else "",
+                     m(x["cost"]) if x["cost"] is not None else f"no price ({x.get('why', '')})",
+                     f"{x['share'] * 100:.0f}%" if x["share"] is not None else ""])
+    out = _table(["Input", "Source", "Amount", "Price", "Cost", "Share"], ["l", "l", "r", "r", "r", "r"], body)
+    total = m(c["total"]) if c["total"] is not None else "—"
+    line = f"**Total:** {total}" + ("" if c["complete"] else " (incomplete: " + ", ".join(c["unpriced"]) + " without a price)")
+    p = c.get("product") or {}
+    if p.get("cost_per_g") is not None:
+        line += f" · **{p['name']}:** {m(p['cost_per_g'])}/g" + (" (crude)" if p.get("crude") else "")
+    out += [line, ""]
+    if c["estimated"]:
+        out += ["\\* planned amount (no measurement): estimated.", ""]
+    return out
+
+
 def _md_body(ctx: dict, lvl: int = 2) -> list[str]:
     exp, s, H = ctx["exp"], ctx["sections"], ctx["headings"]
     h = "#" * lvl
@@ -598,6 +626,8 @@ def _md_body(ctx: dict, lvl: int = 2) -> list[str]:
         out += _md_procedure(ctx, lvl)
     if ctx["products"]:
         out += [f"{h} Yield", ""] + _md_yield(ctx)
+    if ctx.get("cost"):
+        out += [f"{h} Cost", ""] + _md_cost(ctx["cost"], ctx.get("currency") or "USD")
     if s["results"]:
         out += [f"{h} {H['results']}", "", s["results"], ""]
     for key in ("discussion", "conclusion"):
@@ -619,7 +649,7 @@ def to_markdown(ctx: dict) -> str:
     return "\n".join(out)
 
 
-def _route_table(summary: list[dict]) -> list[str]:
+def _route_table(summary: list[dict], currency: Optional[str] = None) -> list[str]:
     body = []
     for r in summary:
         frm = "; ".join(f"{f['title']}" + (f" ({fmt(f['taken_g'])} g)" if f["taken_g"] is not None else "")
@@ -628,9 +658,18 @@ def _route_table(summary: list[dict]) -> list[str]:
         body.append([r["n"], r["title"], frm, prod, f"{fmt(r['isolated_g'])} g" if r["isolated_g"] is not None else "",
                      f"{r['yield']:.1f}%" if r["yield"] is not None else "",
                      f"{fmt(r['remaining_g'])} g" if r["remaining_g"] is not None else "",
-                     f"{r['overall_yield']:.1f}% ({r['lls']} step{'s' if r['lls'] != 1 else ''})" if r["overall_yield"] is not None else ""])
-    return _table(["#", "Experiment", "From", "Product", "Isolated", "Yield", "Left", "Overall"],
-                  ["r", "l", "l", "l", "r", "r", "r", "r"], body)
+                     f"{r['overall_yield']:.1f}% ({r['lls']} step{'s' if r['lls'] != 1 else ''})" if r["overall_yield"] is not None else ""]
+                    + ([_md_per_g(r, currency)] if currency else []))
+    return _table(["#", "Experiment", "From", "Product", "Isolated", "Yield", "Left", "Overall"] + (["Cost/g"] if currency else []),
+                  ["r", "l", "l", "l", "r", "r", "r", "r"] + (["r"] if currency else []), body)
+
+
+def _md_per_g(r: dict, currency: str) -> str:
+    c = r.get("cost") or {}
+    per_g = (c.get("product") or {}).get("cost_per_g")
+    if per_g is None:
+        return ""
+    return ("≥" if not c.get("complete") else "") + costs_mod.money(per_g, currency)
 
 
 def project_markdown(ctx: dict) -> str:
@@ -653,7 +692,7 @@ def project_markdown(ctx: dict) -> str:
                          f"{fmt(m['on_hand_g'] - (m['used_g'] or 0))} g" if m.get("on_hand_g") is not None else ""])
         out += _table(["Compound", "Source", "Used in", "Used", "On hand", "Left"], ["l", "l", "l", "r", "r", "r"], body)
     if ctx["summary"]:
-        out += ["## Experiments", ""] + _route_table(ctx["summary"])
+        out += ["## Experiments", ""] + _route_table(ctx["summary"], ctx.get("currency"))
     if ctx["overall_yield"] is not None:
         out += [f"**Overall yield:** {ctx['overall_yield']:.1f}% over {ctx['lls']} steps", ""]
     for i, ch in enumerate(ctx["chapters"], 1):
