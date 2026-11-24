@@ -144,7 +144,10 @@ function detailPanel(d) {
           <button class="btn small">Record</button></form>
         ${d.adjustments.length ? `<ul class="mini st-adj">${d.adjustments.map((a) => `<li><span>${esc(day(a.ts.slice(0, 10)))} · ${esc(a.reason || "correction")}</span>
           <b>${a.delta > 0 ? "+" : ""}${amt(a.delta, i.unit)}</b><button class="btn icon" data-adj-del="${a.id}" title="Remove this correction" aria-label="Remove">✕</button></li>`).join("")}</ul>` : ""}
-        ${(i.uses || []).length ? `<h4>Used in</h4><ul class="mini st-uses">${i.uses.map((u) => `<li><a href="#/exp/${u.experiment_id}/plan">${esc(u.experiment)}</a><b>${amt(u.amount, i.unit)}</b></li>`).join("")}</ul>` : ""}
+        ${(i.uses || []).length ? `<h4>Used in experiments</h4><ul class="mini st-uses">${i.uses.map((u) => `<li>
+          <a href="#/exp/${u.experiment_id}/plan">${esc(u.experiment)}</a>${u.kind === "reserved" ? '<span class="tag" title="Planned amount: not used yet">reserved</span>' : ""}
+          <b>${u.amount == null ? "?" : amt(u.amount, i.unit)}</b></li>`).join("")}</ul>
+          ${i.unconverted ? `<p class="hint">⚠ ${i.unconverted} amount(s) could not be converted to ${esc(i.unit)}: enter the density.</p>` : ""}` : ""}
         <div class="row st-actions">
           <button class="btn small" data-dup="${i.id}" title="Add another container of the same thing">Duplicate</button>
           ${i.status === "in_use" ? `<button class="btn small" data-status="empty">Mark empty</button><button class="btn small" data-status="disposed">Disposed</button>`

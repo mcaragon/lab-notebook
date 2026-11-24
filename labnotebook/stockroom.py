@@ -136,3 +136,43 @@ class Stockroom:
         if abs(delta) < 1e-9:
             return None
         return self.adjust(item_id, delta, reason or "Stocktake", user_id)
+
+
+# ---------------------------------------------------------------------------------------------- use in experiments
+# Fields a reagent row takes from the container it is drawn from
+SOURCE_FIELDS = ["supplier", "grade", "lot", "purity", "form", "concentration_m", "wt_percent", "solution_density"]
+
+
+def _in_unit(unit: str, grams: Optional[float], ml: Optional[float], density: Optional[float]) -> Optional[float]:
+    """An amount in the container's unit (g or mL), converting with the density when needed."""
+    if unit == "g":
+        if grams is not None:
+            return grams
+        return ml * density if ml is not None and density else None
+    if ml is not None:
+        return ml
+    return grams / density if grams is not None and density else None
+
+
+def amount_for(item: dict, reagent: dict, calc: dict, log_use: dict, completed: bool) -> Optional[dict]:
+    """How much of ``item`` a linked reagent row takes, in the item's unit.
+
+    - measured (the row's actual amount, or for solvents and workup materials the volumes logged in extractions,
+      washes and quenches): ``{"kind": "used", "amount"}``
+    - otherwise its planned amount: ``{"kind": "reserved", "amount"}``, but only while the experiment is not
+      completed (completing it releases the reservation)
+    Returns None when there is nothing to count; ``amount`` is None when it cannot be converted (no density)."""
+    unit = item.get("unit") or "g"
+    density = _num(item.get("density")) if (item.get("form") or "neat") == "neat" else _num(item.get("solution_density"))
+    density = density or _num(reagent.get("density"))
+    if reagent.get("actual_value") is not None:
+        return {"kind": "used", "amount": _in_unit(unit, calc.get("act_mass_g"), calc.get("act_volume_ml"), density)}
+    if log_use:
+        grams = log_use.get("g")
+        ml = log_use.get("mL")
+        return {"kind": "used", "amount": _in_unit(unit, grams, ml, density)}
+    if completed:
+        return None
+    if calc.get("mass_g") is None and calc.get("volume_ml") is None:
+        return None
+    return {"kind": "reserved", "amount": _in_unit(unit, calc.get("mass_g"), calc.get("volume_ml"), density)}

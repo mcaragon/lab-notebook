@@ -803,3 +803,15 @@ details.menu .menu-list { position: absolute; right: 0; top: calc(100% + 4px); z
   .st-row .num { text-align: left; }
 }
 @media (max-width: 700px) { .st-tools input { flex: 1 1 100%; } }
+
+/* ---------------------------------------------------------------------------------------- stockroom links */
+.badge.stock { cursor: pointer; border: 0; color: var(--c-solvent); background: color-mix(in srgb, var(--c-solvent) 12%, transparent); font: inherit; font-size: .68rem; font-weight: 650; }
+.badge.stock.add { color: var(--muted); background: var(--soft); }
+.badge.stock.low { color: var(--warn); background: var(--warn-soft); }
+.badge.stock:hover { filter: brightness(1.08); }
+.cmp { position: relative; }
+.stock-pick { position: absolute; z-index: 40; left: 0; top: calc(100% + 2px); min-width: 320px; max-width: min(520px, 90vw); }
+.stock-pick > button { display: grid; gap: 1px; }
+.stock-pick > button.on { background: var(--accent-soft); }
+.cl-stock { display: block; font-size: .72rem; font-weight: 500; color: var(--c-solvent); }
+.st-uses li .tag { margin-left: 0; }
