@@ -225,7 +225,8 @@ def _fmt(v: Any, sig: int = 3) -> str:
 
 
 def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbers: Optional[dict] = None,
-              link: bool = True, only: Optional[set] = None, inline_css: bool = False) -> str:
+              link: bool = True, only: Optional[set] = None, inline_css: bool = False,
+              currency: Optional[str] = None) -> str:
     """The route map as inline SVG (the app and the reports share it). ``only`` limits it to some experiments;
     ``inline_css`` puts the styles inside the SVG (for the reports; the app styles it with its theme)."""
     nodes = [x for x in g["nodes"] if only is None or x["id"] in only]
@@ -338,10 +339,18 @@ def route_svg(g: dict, img_src: Callable[[dict, int, int], Optional[str]], numbe
             stats.append(f'<tspan class="{low}">{_fmt(x["remaining_g"])} g left</tspan>')
         stat = " · ".join(stats) or '<tspan class="rm-muted">no yield yet</tspan>'
         card.append(f'<text class="rm-stat" x="14" y="148">{stat}</text>')
+        sub = []
         if x["overall_yield"] is not None and x["lls"] > 1:
-            card.append(f'<text class="rm-sub" x="14" y="166">overall {x["overall_yield"]:.0f}% over {x["lls"]} steps</text>')
+            sub.append(f'overall {x["overall_yield"]:.0f}% ({x["lls"]} steps)')
         elif x["stages"] > 1:
-            card.append(f'<text class="rm-sub" x="14" y="166">one-pot, {x["stages"]} stages</text>')
+            sub.append(f'one-pot, {x["stages"]} stages')
+        per_g = ((x.get("cost") or {}).get("product") or {}).get("cost_per_g") if currency else None
+        if per_g is not None:
+            from .costs import money
+            mark = "" if x["cost"]["complete"] else "≥"
+            sub.append(f'<tspan class="rm-cost">{mark}{html.escape(money(per_g, currency))}/g</tspan>')
+        if sub:
+            card.append(f'<text class="rm-sub" x="14" y="166">{" · ".join(sub)}</text>')
         card.append("</g>")
         out.append((f'<a href="#/exp/{x["id"]}/plan">' + "".join(card) + "</a>") if link else "".join(card))
     out.append("</svg>")
@@ -365,6 +374,7 @@ ROUTE_CSS = """
 .route-map .rm-edge.extra { stroke-dasharray: 5 4; }
 .route-map .rm-head { fill: #6b7480; }
 .route-map .rm-label { font-size: 10.5px; fill: #3a434e; font-weight: 600; }
+.route-map .rm-cost { fill: #8a5a00; font-weight: 650; }
 """
 
 

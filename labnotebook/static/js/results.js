@@ -9,6 +9,7 @@ export function renderResults(root) {
   root.innerHTML = `<div class="panel">
     <div class="row sec-head"><h2>Results</h2></div>
     <div id="yields"></div>
+    <div id="costs"></div>
     ${sectionField("results", "Results", "Characterization: appearance, mp, TLC, IR/NMR data (Markdown)", 6)}
     <div class="gap"></div>${sectionField("discussion", "Discussion", "", 6)}
     <div class="gap"></div>${sectionField("conclusion", "Conclusion", "", 3)}
@@ -17,8 +18,43 @@ export function renderResults(root) {
   updateYields(root);
 }
 
+export const money = (v, cur) => {
+  if (v == null) return "–";
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: cur || "USD",
+      maximumFractionDigits: v !== 0 && Math.abs(v) < 1 ? 4 : 2 }).format(v);
+  } catch { return v.toFixed(2); }
+};
+
+function costPanel(d) {
+  const c = d.cost;
+  if (!c || !c.inputs.length) return "";
+  const cur = d.currency;
+  const p = c.product || {};
+  const src = (x) => (!x.source ? "" : x.source.kind === "stock" ? `📦 ${esc([x.source.supplier, x.source.lot ? `lot ${x.source.lot}` : ""].filter(Boolean).join(" · ") || "stockroom")}`
+    : `<a href="#/exp/${x.source.experiment_id}/results">⇢ from an earlier step</a>`);
+  const rows = [...c.inputs].sort((a, b) => (b.cost ?? -1) - (a.cost ?? -1));
+  return `<h3 class="cost-h">Cost</h3>
+    <div class="cost-kpis">
+      <div class="kpi"><span class="k-l">Experiment</span><span class="k-v">${c.total != null ? money(c.total, cur) : "–"}</span>
+        <span class="k-s">${c.complete ? (c.estimated ? "estimated from planned amounts" : "from measured amounts") : `incomplete: ${c.unpriced.length} without a price`}</span></div>
+      <div class="kpi"><span class="k-l">${esc(p.name || "Product")}</span><span class="k-v">${p.cost_per_g != null ? `${c.complete ? "" : "≥ "}${money(p.cost_per_g, cur)}<small>/g</small>` : "–"}</span>
+        <span class="k-s">${p.cost_per_g != null ? `${p.crude ? "crude mass" : `${fmt(p.mass_g)} g isolated`}${p.cost_per_mmol != null ? ` · ${money(p.cost_per_mmol, cur)}/mmol` : ""}` : "enter the isolated mass"}</span></div>
+    </div>
+    <table class="cost-table"><thead><tr><th>Input</th><th>Source</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Cost</th><th>Share</th></tr></thead>
+      <tbody>${rows.map((x) => `<tr class="${x.cost == null ? "unpriced" : ""}">
+        <td>${esc(x.name)}</td><td class="sub">${src(x)}</td>
+        <td class="num">${x.amount != null ? `${fmt(x.amount)} ${esc(x.unit)}${x.estimated ? ' <span class="tag" title="Planned amount: nothing measured yet">planned</span>' : ""}` : "–"}</td>
+        <td class="num">${x.unit_price != null ? `${money(x.unit_price, cur)}/${esc(x.unit)}` : "–"}</td>
+        <td class="num">${x.cost != null ? money(x.cost, cur) : `<span class="sub">${esc(x.why || "no price")}</span>`}</td>
+        <td>${x.share != null ? `<span class="share"><span style="width:${Math.round(x.share * 100)}%"></span></span> ${Math.round(x.share * 100)}%` : ""}</td></tr>`).join("")}</tbody></table>
+    ${!c.complete ? `<p class="hint">Link the inputs without a price to stockroom containers (📦 chip on the reagent row) to complete the cost.</p>` : ""}`;
+}
+
 function updateYields(root) {
   const d = state.data;
+  const cbox = $("#costs", root);
+  if (cbox) cbox.innerHTML = costPanel(d);
   const rows = d.reagents.filter((r) => r.role === "product").map((r) => ({ r }));
   const box = $("#yields", root);
   if (!rows.length) {
@@ -114,17 +150,30 @@ function bindRefs(root) {
 // ------------------------------------------------------------------------------------------- report
 export function renderReport(root) {
   const id = expId();
+  let withCosts = false;  // off by default
+  const q = (extra = "") => { const p = [extra, withCosts ? "costs=true" : ""].filter(Boolean).join("&"); return p ? `?${p}` : ""; };
   root.innerHTML = `<div class="panel">
     <div class="row sec-head"><h2>Report</h2><span class="spacer"></span>
-      <a class="btn primary" href="/api/experiments/${id}/report.pdf" target="_blank" rel="noopener">⬇ PDF</a>
-      <a class="btn" href="/api/experiments/${id}/report.md?download=true">⬇ Markdown</a>
-      <a class="btn" href="/api/experiments/${id}/report.html" target="_blank" rel="noopener">Print view</a>
+      <label class="inline small" title="Adds a cost section (prices from the stockroom)"><input type="checkbox" id="rep-costs"> Include costs</label>
+      <a class="btn primary" data-rep="pdf" target="_blank" rel="noopener">⬇ PDF</a>
+      <a class="btn" data-rep="md">⬇ Markdown</a>
+      <a class="btn" data-rep="html" target="_blank" rel="noopener">Print view</a>
       <button class="btn" id="rep-preview">Show preview</button></div>
     <div id="rep-box"></div></div>`;
+  const links = () => {
+    $$("[data-rep]", root).forEach((a) => {
+      const f = a.dataset.rep;
+      a.href = `/api/experiments/${id}/report.${f}${q(f === "md" ? "download=true" : "")}`;
+    });
+    const frame = $("#rep-box iframe", root);
+    if (frame) frame.src = `/api/experiments/${id}/report.html${q()}`;
+  };
+  links();
+  $("#rep-costs", root).onchange = (e) => { withCosts = e.target.checked; links(); };
   $("#rep-preview", root).onclick = () => {
     const box = $("#rep-box", root);
     if (box.firstChild) { box.firstChild.src = box.firstChild.src; return; }
-    box.innerHTML = `<iframe class="preview" title="Report preview" src="/api/experiments/${id}/report.html"></iframe>`;
+    box.innerHTML = `<iframe class="preview" title="Report preview" src="/api/experiments/${id}/report.html${q()}"></iframe>`;
     $("#rep-preview", root).textContent = "↻ Refresh preview";
   };
 }

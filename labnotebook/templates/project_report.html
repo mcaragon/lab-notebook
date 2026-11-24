@@ -42,7 +42,7 @@
 <h2>Experiments</h2>
 {% if summary %}
 <table>
-  <thead><tr><th class="num">#</th><th>Experiment</th><th>From</th><th>Product</th><th class="num">Isolated</th><th class="num">Yield</th><th class="num">Left</th><th class="num">Overall</th></tr></thead>
+  <thead><tr><th class="num">#</th><th>Experiment</th><th>From</th><th>Product</th><th class="num">Isolated</th><th class="num">Yield</th><th class="num">Left</th><th class="num">Overall</th>{% if currency %}<th class="num">Cost/g</th>{% endif %}</tr></thead>
   <tbody>
   {% for r in summary %}
   <tr><td class="num">{{ r.n }}</td><td>{{ r.title }}<br><span class="small">{{ r.date or '' }}</span></td>
@@ -51,7 +51,8 @@
     <td class="num">{% if r.isolated_g is not none %}{{ r.isolated_g | fmt }} g{% endif %}</td>
     <td class="num">{% if r['yield'] is not none %}<strong>{{ '%.1f' % r['yield'] }}%</strong>{% endif %}</td>
     <td class="num">{% if r.remaining_g is not none %}{{ r.remaining_g | fmt }} g{% endif %}</td>
-    <td class="num">{% if r.overall_yield is not none %}{{ '%.1f' % r.overall_yield }}%<br><span class="small">{{ r.lls }} step{{ 's' if r.lls != 1 }}</span>{% endif %}</td></tr>
+    <td class="num">{% if r.overall_yield is not none %}{{ '%.1f' % r.overall_yield }}%<br><span class="small">{{ r.lls }} step{{ 's' if r.lls != 1 }}</span>{% endif %}</td>
+    {%- if currency %}<td class="num">{% set pg = (r.cost or {}).get('product', {}) or {} %}{% if pg.cost_per_g is not none %}{{ '≥' if not r.cost.complete }}{{ pg.cost_per_g | money(currency) }}{% endif %}</td>{% endif %}</tr>
   {% endfor %}
   </tbody>
 </table>

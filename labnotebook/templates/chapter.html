@@ -103,6 +103,27 @@
 
 {%- if c.products %}<{{ H }}>Yield</{{ H }}>{{ yield_table() }}{% endif %}
 
+{%- if c.cost %}{% set cur = c.currency or 'USD' %}
+<{{ H }}>Cost</{{ H }}>
+<table class="cost">
+  <thead><tr><th>Input</th><th>Source</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Cost</th><th class="num">Share</th></tr></thead>
+  <tbody>
+  {%- for x in c.cost.inputs %}
+  <tr><td>{{ x.name }}</td>
+    <td class="small">{% if x.source and x.source.kind == 'stock' %}{{ [x.source.supplier, ('lot ' ~ x.source.lot) if x.source.lot else None] | select | join(', ') }}{% elif x.source %}from an earlier step{% endif %}</td>
+    <td class="num">{% if x.amount is not none %}{{ x.amount | fmt }} {{ x.unit }}{% if x.estimated and x.cost is not none %}*{% endif %}{% endif %}</td>
+    <td class="num">{% if x.unit_price is not none %}{{ x.unit_price | money(cur) }}/{{ x.unit }}{% endif %}</td>
+    <td class="num">{% if x.cost is not none %}{{ x.cost | money(cur) }}{% else %}<span class="small">no price</span>{% endif %}</td>
+    <td class="num">{% if x.share is not none %}{{ '%.0f' % (x.share * 100) }}%{% endif %}</td></tr>
+  {%- endfor %}
+  <tr class="total"><td colspan="4"><strong>Total</strong>{% if not c.cost.complete %} <span class="small">(incomplete: {{ c.cost.unpriced | join(', ') }} without a price)</span>{% endif %}</td>
+    <td class="num"><strong>{{ c.cost.total | money(cur) if c.cost.total is not none else '—' }}</strong></td><td></td></tr>
+  </tbody>
+</table>
+{%- if c.cost.product and c.cost.product.cost_per_g is not none %}<p><strong>{{ c.cost.product.name }}:</strong> {{ c.cost.product.cost_per_g | money(cur) }}/g{% if c.cost.product.crude %} (crude){% endif %}{% if c.cost.product.cost_per_mmol is not none %} · {{ c.cost.product.cost_per_mmol | money(cur) }}/mmol{% endif %}</p>{% endif %}
+{%- if c.cost.estimated %}<p class="footnote">* Planned amount (no measurement): the cost is an estimate.</p>{% endif %}
+{%- endif %}
+
 {%- if c.sections.results %}<{{ H }}>{{ c.headings.results }}</{{ H }}><div class="prose">{{ c.sections.results | md | safe }}</div>{% endif %}
 {%- if c.sections.discussion %}<{{ H }}>{{ c.headings.discussion }}</{{ H }}><div class="prose">{{ c.sections.discussion | md | safe }}</div>{% endif %}
 {%- if c.sections.conclusion %}<{{ H }}>{{ c.headings.conclusion }}</{{ H }}><div class="prose">{{ c.sections.conclusion | md | safe }}</div>{% endif %}

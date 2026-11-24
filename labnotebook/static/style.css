@@ -815,3 +815,19 @@ details.menu .menu-list { position: absolute; right: 0; top: calc(100% + 4px); z
 .stock-pick > button.on { background: var(--accent-soft); }
 .cl-stock { display: block; font-size: .72rem; font-weight: 500; color: var(--c-solvent); }
 .st-uses li .tag { margin-left: 0; }
+.route-map .rm-cost { fill: var(--warn); font-weight: 650; }
+
+/* ---------------------------------------------------------------------------------------- costs */
+.cost-h { margin: 18px 0 8px; }
+.cost-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.cost-kpis .kpi { border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; display: grid; gap: 2px; background: var(--pane-2); }
+.cost-kpis .k-v { font-size: 1.35rem; font-weight: 700; }
+.cost-kpis .k-v small { font-size: .8rem; font-weight: 500; color: var(--muted); }
+.cost-table { border-collapse: collapse; width: 100%; font-size: .86rem; margin-bottom: 6px; }
+.cost-table th, .cost-table td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: middle; }
+.cost-table th { font-size: .66rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 650; }
+.cost-table .num { text-align: right; white-space: nowrap; }
+.cost-table tr.unpriced td:first-child { color: var(--warn); }
+.cost-table .tag { margin-left: 4px; }
+.share { display: inline-block; width: 70px; height: 6px; border-radius: 99px; background: var(--soft); overflow: hidden; vertical-align: middle; }
+.share span { display: block; height: 100%; background: var(--warn); }

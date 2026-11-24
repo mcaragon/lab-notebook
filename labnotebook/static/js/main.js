@@ -188,7 +188,7 @@ function renderShell(tab) {
   addRenderer("bench", () => sigOf(d().procedure, d().entries, d().steps.map((x) => x.id),
     d().reagents.map((r) => [r.id, r.name, r.label, r.role, r.form, r.mp])), () => renderProcedure($("#sec-procedure")));
   addRenderer("results", () => sigOf(d().reagents.filter((r) => r.role === "product").map((r) => [r.id, r.name, r.calc, r.expected_ref_id]),
-    d().stoich.yield, d().refs.map((x) => x.id)), () => renderResults($("#sec-results")));
+    d().stoich.yield, d().refs.map((x) => x.id), d().cost, d().currency), () => renderResults($("#sec-results")));
   addRenderer("results", () => sigOf(d().refs), () => renderRefs($("#sec-refs")));
   addRenderer("report", () => sigOf(expId()), () => renderReport($("#sec-report")));
   showTab(tab || (exp.started_at && !exp.ended_at ? "bench" : "plan"));

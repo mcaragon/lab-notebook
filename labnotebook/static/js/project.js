@@ -4,6 +4,7 @@
 import { $, $$, api, debounce, esc, fmt, parseNum, toast } from "./util.js";
 import { refreshSidebar } from "./sidebar.js";
 import { branchFrom } from "./widgets.js";
+import { money } from "./results.js";
 
 const STATUS_LABELS = { planned: "Planned", in_progress: "In progress", completed: "Completed" };
 let proj = null;
@@ -37,7 +38,9 @@ const saveField = debounce(async (field, value) => {
 
 const g = (v) => (v == null ? "–" : `${fmt(v)} g`);
 
+let reportCosts = false;  // "Include costs": off by default
 function reportLinks(base, label) {
+  if (reportCosts) base += (base.includes("?") ? "&" : "?") + "costs=true";
   return `<span class="rep-label">${label}</span>
     <a class="btn small primary" href="${base.replace("{f}", "pdf")}" target="_blank" rel="noopener">⬇ PDF</a>
     <a class="btn small" href="${base.replace("{f}", "md")}${base.includes("?") ? "&" : "?"}download=true">⬇ Markdown</a>
@@ -82,17 +85,19 @@ async function draw(app) {
             <div class="sub">${esc([m.supplier, m.lot ? `lot ${m.lot}` : ""].filter(Boolean).join(" · ") || "no lot entered")}</div></td>
           <td class="sub">${m.uses.map((u) => `<a href="#/exp/${u.experiment_id}/plan">${esc(u.title)}</a>${u.taken_g != null ? ` · ${fmt(u.taken_g)} g` : ""}`).join("<br>")}</td>
           <td class="num">${g(m.used_g)}</td>
-          <td class="num"><span class="pct-in"><input class="amt sm" inputmode="decimal" data-onhand="${esc(m.key)}" value="${m.on_hand_g ?? ""}" placeholder="–" aria-label="Amount on hand (g)"> g</span></td>
-          <td class="num ${m.left_g != null && m.left_g < 0 ? "neg" : ""}">${m.left_g != null ? g(m.left_g) : "–"}</td>
+          ${m.stock ? `<td class="num"><a href="#/stockroom" title="Amounts from the stockroom container">📦 ${esc(fmt(m.stock.quantity))} ${esc(m.stock.unit)}</a></td>
+            <td class="num ${m.stock.left != null && m.stock.left < 0 ? "neg" : ""}">${m.stock.left != null ? `${fmt(m.stock.left)} ${esc(m.stock.unit)}` : "–"}${m.stock.reserved ? `<div class="sub">${fmt(m.stock.reserved)} ${esc(m.stock.unit)} reserved</div>` : ""}</td>`
+          : `<td class="num"><span class="pct-in"><input class="amt sm" inputmode="decimal" data-onhand="${esc(m.key)}" value="${m.on_hand_g ?? ""}" placeholder="–" aria-label="Amount on hand (g)"> g</span></td>
+          <td class="num ${m.left_g != null && m.left_g < 0 ? "neg" : ""}">${m.left_g != null ? g(m.left_g) : "–"}</td>`}
           <td class="actions"><button class="btn small" data-branch-sm="${m.reagent_id}" title="New first step from this batch">⑂ Branch</button></td>
         </tr>`).join("")}</tbody></table></div>
-      <p class="hint">Enter the amount on hand to track what is left. A different lot number makes a separate batch.</p>
+      <p class="hint">Batches drawn from the stockroom (📦) show its amounts; for others, enter the amount on hand. A different lot number makes a separate batch.</p>
     </div>` : ""}
     ${rows.length ? `<div class="panel">
       <div class="row sec-head"><h2>Experiments</h2></div>
       <div class="table-wrap"><table class="proj-sum">
         <thead><tr><th class="num">#</th><th>Experiment</th><th>From</th><th>Product</th><th class="num">Isolated</th>
-          <th class="num">Yield</th><th class="num">Left</th><th class="num">Overall</th><th></th></tr></thead>
+          <th class="num">Yield</th><th class="num">Left</th><th class="num">Overall</th><th class="num" title="Cost of the product per gram, with what it inherits from earlier steps">Cost/g</th><th></th></tr></thead>
         <tbody>${rows.map((r) => `<tr data-eid="${r.id}" style="--depth:${r.col}">
           <td class="num sub">${r.n}</td>
           <td class="t-exp"><span class="indent"></span><i class="dot ${esc(r.status)}" title="${esc(STATUS_LABELS[r.status] || r.status)}"></i>
@@ -103,6 +108,8 @@ async function draw(app) {
           <td class="num yield">${r.yield != null ? r.yield.toFixed(1) + "%" : "–"}</td>
           <td class="num ${r.remaining_g != null && r.remaining_g < 0 ? "neg" : ""}">${r.remaining_g != null ? g(r.remaining_g) : r.isolated_g != null ? g(r.isolated_g) : "–"}</td>
           <td class="num">${r.overall_yield != null ? `${r.overall_yield.toFixed(1)}%<div class="sub">${r.lls} step${r.lls === 1 ? "" : "s"}</div>` : "–"}</td>
+          <td class="num">${r.cost && r.cost.per_g != null ? `${r.cost.complete ? "" : "≥ "}${money(r.cost.per_g, proj.currency)}${r.cost.total != null ? `<div class="sub">${money(r.cost.total, proj.currency)} total</div>` : ""}`
+            : `<span class="sub" title="${r.cost && r.cost.unpriced.length ? `No price: ${esc(r.cost.unpriced.join(", "))}` : "No inputs priced from the stockroom"}">–</span>`}</td>
           <td class="actions">${r.product_id ? `<button class="btn small" data-branch="${r.product_id}" title="New experiment from a portion of ${esc(r.product)}">⑂ Branch</button>` : ""}
             <button class="btn icon danger" data-remove="${r.id}" title="Remove from the project (the experiment is kept)" aria-label="Remove">✕</button></td>
         </tr>`).join("")}</tbody></table></div>
@@ -110,6 +117,7 @@ async function draw(app) {
     </div>` : ""}
     <div class="panel">
       <div class="row sec-head"><h2>Reports</h2></div>
+      <label class="inline small"><input type="checkbox" id="rep-costs" ${reportCosts ? "checked" : ""}> Include costs (prices from the stockroom)</label>
       <div class="rep-grid">
         <div class="row">${reportLinks(`/api/projects/${p.id}/report.{f}`, "Whole project")}</div>
         ${proj.final.map((f) => `<div class="row">${reportLinks(`/api/projects/${p.id}/report.{f}?leaf=${f.id}`, `Route to ${esc(f.title)}`)}</div>`).join("")}
@@ -117,6 +125,7 @@ async function draw(app) {
       <label class="field" style="margin-top:12px">Notes (shown in the reports)<textarea id="proj-notes" rows="3">${esc(p.notes || "")}</textarea></label>
       <div class="row" style="margin-top:12px"><span class="spacer"></span><button class="btn danger small" id="proj-del">Delete project</button></div>
     </div>`;
+  $("#rep-costs", app).onchange = (e) => { reportCosts = e.target.checked; draw(app); };
   $("#proj-title", app).addEventListener("input", (e) => saveField("title", e.target.value || "Untitled project"));
   $("#proj-notes", app).addEventListener("input", (e) => saveField("notes", e.target.value));
   $("#proj-add", app).onchange = (e) => e.target.value && change(app, "POST", `/api/projects/${p.id}/experiments`, { experiment_id: Number(e.target.value) });

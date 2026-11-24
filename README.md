@@ -42,7 +42,11 @@ PubChem database** ([PubChem Local](https://github.com/mcaragon/local_pubchem_db
   left, price (per g or mL), location and expiry, filled in from PubChem Local; corrections and stocktakes, low-stock
   and expiry warnings. When you add a reagent, your bottles are offered first: picking one fills in the row and links
   it, so measured amounts come off the bottle and planned ones are held as *reserved* until the experiment is
-  completed. (Costing experiments is next; see [the plan](docs/stockroom-plan.md).)
+  completed.
+- **Costs:** every input drawn from a bottle costs its amount × the bottle's price; intermediates carry their cost
+  per gram into the next step. The Results tab breaks an experiment's cost down by input and gives the product's cost
+  per gram (and per mmol); projects compare cost per gram across runs and routes. Inputs without a price make a total
+  *incomplete* instead of counting as free. Reports include costs only when you tick **Include costs**.
 - **Built-in feedback:** testers report problems and ideas from inside the app (with a screenshot); admins answer
   them in a Feedback inbox.
 - **Light and night themes**, and a layout that works from a 27" monitor down to a phone.
@@ -295,6 +299,7 @@ Debian/Ubuntu). Without it, PDF export returns HTTP 501 and the other formats st
 | `labnotebook/app.py` | FastAPI app: JSON API, access control, admin routes, PubChem Local proxy, report downloads, frontend |
 | `labnotebook/auth.py` | Accounts: password hashing, sessions, invites, sign-in throttling |
 | `labnotebook/stockroom.py` | Stockroom: containers, amounts and prices, corrections |
+| `labnotebook/costs.py` | Costs of experiments: inputs from stockroom prices, costs inherited along routes |
 | `labnotebook/feedback.py` | Problem reports sent from the app (stored in the notebook, read in Admin → Feedback) |
 | `labnotebook/stoich.py` | Stoichiometry: planned/actual amounts, limiting reagent, yields (pure functions) |
 | `labnotebook/actions.py` | Log actions: fields and the sentences they produce |

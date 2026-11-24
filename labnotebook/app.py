@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from . import __version__, actions, auth, db, feedback, hazards, projects, report, scheme, stockroom, stoich, structures
+from . import __version__, actions, auth, costs, db, feedback, hazards, projects, report, scheme, stockroom, stoich, structures
 from .config import Settings, load_settings
 from .pubchem import PubChemClient, PubChemUnavailable, summary_to_reagent
 
@@ -481,7 +481,27 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         b["projects"] = store.projects_of(exp_id)
         b["route"] = route_links(b, calc)
         stock_links(b)
+        b["cost"] = cost_engine(b["experiment"]["owner_id"]).experiment(exp_id)
+        b["currency"] = me().get("currency") or "USD"
         return b
+
+    def cost_engine(owner: int) -> costs.Costs:
+        """Costs of the account's experiments (inputs from stockroom prices; intermediates inherit)."""
+        items = {it["id"]: it for it in stock.items(owner)}
+
+        def bundle_of(eid: int) -> Optional[dict]:
+            b = store.bundle(eid)
+            if not b or b["experiment"].get("owner_id") != owner:
+                return None
+            b["calc"] = compute(b)
+            b["log_use"] = actions.usage(b["entries"])
+            return b
+
+        def experiment_of(rid: int) -> Optional[int]:
+            eid = store.experiment_of("reagents", rid)
+            return eid if eid is not None and store.owner_of("experiments", eid) == owner else None
+
+        return costs.Costs(items, bundle_of, experiment_of)
 
     def stock_links(b: dict) -> None:
         """Per reagent row: its container (``stock``) or how many containers of the compound are in stock."""
@@ -1105,11 +1125,30 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         calcs = [compute(b) for b in bundles]
         return bundles, calcs, projects.graph(bundles, calcs, store.material_amounts(proj["id"]))
 
+    def cost_brief(c: Optional[dict]) -> Optional[dict]:
+        if not c:
+            return None
+        p = c.get("product") or {}
+        return {"total": c["total"], "complete": c["complete"], "estimated": c["estimated"], "unpriced": c["unpriced"],
+                "per_g": p.get("cost_per_g"), "crude": p.get("crude")}
+
+    def batch_stock(m: dict) -> Optional[dict]:
+        """The stockroom container a starting-material batch is drawn from, if it is linked to one."""
+        iid = m["reagent"].get("stock_item_id")
+        it = stock.get(iid) if iid else None
+        if not it or it["owner_id"] != uid():
+            return None
+        v = stock_view(it, stock.correction_totals(uid()), stock_usage(uid()))
+        return {k: v.get(k) for k in ("id", "quantity", "unit", "left", "reserved", "unit_price")}
+
     def project_detail(project_id: int) -> dict:
         proj = need_project(project_id)
         bundles, calcs, g = project_parts(proj)
         numbers = report.project_numbers(g, bundles, calcs)[0]
         img = lambda r, w, h: _struct_url(r, w, h)  # noqa: E731
+        engine = cost_engine(uid())
+        for x in g["nodes"]:
+            x["cost"] = engine.experiment(x["id"])
         rows = projects.summary_rows(g)
         final = [n for n in projects.leaves(g) if next(x for x in g["nodes"] if x["id"] == n)["parents"]]
         return {
@@ -1120,12 +1159,15 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
                                            "remaining_g", "overall_yield", "lls", "from", "children")}
                         | {"product": scheme.label(r["product"]) if r["product"] else None,
                            "product_id": r["product"]["id"] if r["product"] else None,
-                           "number": numbers.get(r["product"]["id"]) if r["product"] else None} for r in rows],
+                           "number": numbers.get(r["product"]["id"]) if r["product"] else None,
+                           "cost": cost_brief(r.get("cost"))} for r in rows],
+            "currency": me().get("currency") or "USD",
             "final": [{"id": n, "title": next(x for x in g["nodes"] if x["id"] == n)["title"]} for n in final],
-            "map_svg": projects.route_svg(g, img, numbers),
+            "map_svg": projects.route_svg(g, img, numbers, currency=me().get("currency") or "USD"),
             "materials": [{"key": m["key"], "name": m["name"], "lot": m["lot"], "supplier": m["supplier"],
                            "reagent_id": m["reagent"]["id"], "number": numbers.get(m["reagent"]["id"]),
                            "used_g": m["used_g"], "on_hand_g": m["on_hand_g"], "left_g": m["left_g"],
+                           "stock": batch_stock(m),
                            "uses": [{**u, "title": next(x["title"] for x in g["nodes"] if x["id"] == u["experiment_id"])}
                                     for u in m["uses"]]} for m in g["materials"]],
             "branches": any(len(x["children"]) > 1 for x in g["nodes"]),
@@ -1279,30 +1321,41 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
             out.append({**p, "remaining_g": left})
         return {"products": out}
 
-    def _project_ctx(project_id: int, embed: bool, leaf: Optional[int]) -> dict:
+    def _project_ctx(project_id: int, embed: bool, leaf: Optional[int], with_costs: bool = False) -> dict:
         proj = need_project(project_id)
         bundles, calcs, g = project_parts(proj)
         if leaf is not None and leaf not in proj["experiment_ids"]:
             raise HTTPException(404, "That experiment is not in this project")
-        return report.build_project_context(proj, bundles, calcs, g, settings, client if embed else None, leaf)
+        currency = me().get("currency") or "USD"
+        if with_costs:
+            engine = cost_engine(uid())
+            for x in g["nodes"]:
+                x["cost"] = engine.experiment(x["id"])
+        ctx = report.build_project_context(proj, bundles, calcs, g, settings, client if embed else None, leaf,
+                                           currency=currency if with_costs else None)
+        if with_costs:
+            node = {x["id"]: x for x in g["nodes"]}
+            for ch in ctx["chapters"]:
+                ch["cost"], ch["currency"] = node[ch["exp"]["id"]].get("cost"), currency
+        return ctx
 
     def _project_name(ctx: dict) -> str:
         return _slug(ctx["title"])
 
     @app.get("/api/projects/{project_id}/report.md", response_class=PlainTextResponse)
-    def project_md(project_id: int, download: bool = False, leaf: Optional[int] = None):
-        ctx = _project_ctx(project_id, False, leaf)
+    def project_md(project_id: int, download: bool = False, leaf: Optional[int] = None, costs: bool = False):
+        ctx = _project_ctx(project_id, False, leaf, costs)
         headers = ({"Content-Disposition": f'attachment; filename="{_project_name(ctx)}.md"'} if download else {})
         return PlainTextResponse(report.project_markdown(ctx), media_type="text/markdown; charset=utf-8",
                                  headers=headers)
 
     @app.get("/api/projects/{project_id}/report.html", response_class=HTMLResponse)
-    def project_report_html(project_id: int, leaf: Optional[int] = None):
-        return HTMLResponse(report.project_html(_project_ctx(project_id, True, leaf)))
+    def project_report_html(project_id: int, leaf: Optional[int] = None, costs: bool = False):
+        return HTMLResponse(report.project_html(_project_ctx(project_id, True, leaf, costs)))
 
     @app.get("/api/projects/{project_id}/report.pdf")
-    def project_pdf(project_id: int, download: bool = True, leaf: Optional[int] = None):
-        ctx = _project_ctx(project_id, True, leaf)
+    def project_pdf(project_id: int, download: bool = True, leaf: Optional[int] = None, costs: bool = False):
+        ctx = _project_ctx(project_id, True, leaf, costs)
         try:
             pdf = report.to_pdf(report.project_html(ctx, for_pdf=True))
         except (ImportError, OSError) as e:
@@ -1360,27 +1413,31 @@ def create_app(settings: Optional[Settings] = None, pubchem: Optional[PubChemCli
         return _image(_pc(client.ghs_svg, code))
 
     # -------------------------------------------------------------- reports
-    def _ctx(exp_id: int, embed: bool) -> dict:
+    def _ctx(exp_id: int, embed: bool, with_costs: bool = False) -> dict:
+        """Report context; with ``with_costs`` (the report's "Include costs" option) a cost section."""
         b = store.bundle(exp_id)
         if not b or b["experiment"].get("owner_id") != uid():
             raise HTTPException(404, "Experiment not found")
-        return report.build_context(b, compute(b), settings, client if embed else None)
+        ctx = report.build_context(b, compute(b), settings, client if embed else None)
+        if with_costs:
+            ctx["cost"], ctx["currency"] = cost_engine(uid()).experiment(exp_id), me().get("currency") or "USD"
+        return ctx
 
     @app.get("/api/experiments/{exp_id}/report.md", response_class=PlainTextResponse)
-    def report_md(exp_id: int, download: bool = False):
-        ctx = _ctx(exp_id, embed=False)
+    def report_md(exp_id: int, download: bool = False, costs: bool = False):
+        ctx = _ctx(exp_id, embed=False, with_costs=costs)
         headers = ({"Content-Disposition": f'attachment; filename="{_slug(ctx["exp"]["title"])}.md"'}
                    if download else {})
         return PlainTextResponse(report.to_markdown(ctx), media_type="text/markdown; charset=utf-8",
                                  headers=headers)
 
     @app.get("/api/experiments/{exp_id}/report.html", response_class=HTMLResponse)
-    def report_html(exp_id: int):
-        return HTMLResponse(report.to_html(_ctx(exp_id, embed=True)))
+    def report_html(exp_id: int, costs: bool = False):
+        return HTMLResponse(report.to_html(_ctx(exp_id, embed=True, with_costs=costs)))
 
     @app.get("/api/experiments/{exp_id}/report.pdf")
-    def report_pdf(exp_id: int, download: bool = True):
-        ctx = _ctx(exp_id, embed=True)
+    def report_pdf(exp_id: int, download: bool = True, costs: bool = False):
+        ctx = _ctx(exp_id, embed=True, with_costs=costs)
         try:
             pdf = report.to_pdf(report.to_html(ctx, for_pdf=True))
         except (ImportError, OSError) as e:
